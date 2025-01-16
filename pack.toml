@@ -1,0 +1,5 @@
+[custom.all.regex]
+type = "local"
+path = "."
+ipkg = "regex.ipkg"
+#test = "tests/tests.ipkg"

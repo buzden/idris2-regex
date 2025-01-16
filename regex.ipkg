@@ -1,0 +1,14 @@
+package regex
+
+authors = "Denis Buzdalov"
+
+brief = "A simple regular expression library"
+
+license = "Apache-2.0"
+
+sourcedir = "src"
+builddir = ".build"
+
+modules = Data.Regex
+
+-- depends =
