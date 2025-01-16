@@ -41,17 +41,43 @@ namespace ColistNM
   xs : ColistNM 1 3 Nat
   xs = [1, 2, 3]
 
+namespace Tuple
+
+  -- Specialised version of `Data.List.Quantifiers.HList` since we can't match on it as on type
+  public export
+  data All : List Type -> Type where
+    Nil : All []
+    (::) : (x : a) -> All as -> All (a::as)
+
 public export
 0 (*) : Type -> Type -> Type
 Unit * a = a
 a * Unit = a
-a * b = (a, b) -- TODO to use something like HList
+All as * All bs = All $ as ++ bs
+All as * b = All $ as ++ [b]
+a * All bs = All $ [a] ++ bs
+a * b = All [a, b]
+
+namespace Either
+
+  -- Specialised version of `Data.List.Quantifiers.Any Prelude.id` since we can't match on it as on type
+  -- extended with a flag of possible lack of a value
+  public export
+  data One : (canMiss : Bool) -> List Type -> Type where
+    Nothing : One True as
+    Here    : (x : a) -> One cm (a::as)
+    There   : One False as -> One cm (a::as)
 
 public export
 0 (+) : Type -> Type -> Type
-Unit + a = Maybe a
-a + Unit = Maybe a
-a + b = Either a b -- TODO to use some speacial type for this
+Unit + One cn bs = One True bs
+One cm as + Unit = One True as
+Unit + a = One True [a]
+a + Unit = One True [a]
+One cm as + One cn bs = One (cm || cn) (as ++ bs)
+One cm as + b = One cm (as ++ [b])
+a + One cm bs = One cm ([a] ++ bs)
+a + b = One False [a, b]
 
 export
 data Regex : Type -> Type where
