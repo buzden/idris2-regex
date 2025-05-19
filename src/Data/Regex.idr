@@ -1,58 +1,39 @@
 module Data.Regex
 
 import Data.List.Quantifiers
-import public Data.So
+import public Data.Vect
 
 %default total
-
-namespace Conat
-
-  public export
-  data Conat : Type where
-    Z : Conat
-    S : Inf Conat -> Conat
-
-  public export
-  Infinity : Conat
-  Infinity = S Infinity
-
-  public export
-  fromNat : Nat -> Conat
-  fromNat Z     = Z
-  fromNat $ S n = S $ fromNat n
-
-  public export %inline
-  fromInteger : (x : Integer) -> So (x >= 0) => Conat
-  fromInteger x = fromNat $ fromInteger x
-
-  public export
-  data LTE : (l, r : Conat) -> Type where
-    LTEZero : LTE Z m
-    LTESucc : LTE n m -> LTE (S n) (S m)
-
-  public export %defaulthint %inline
-  ltezero : LTE Z m
-  ltezero = LTEZero
-
-namespace BoundedList
-
-  public export
-  data BoundedList : (min, max : Conat) -> Type -> Type where
-    Nil  : BoundedList Z ma a
-    (::) : a -> BoundedList mi ma a -> (0 _ : mi' `LTE` S mi) => (0 _ : S ma `LTE` ma') => BoundedList mi' ma' a
-
-  xs : BoundedList 1 3 Nat
-  xs = [1, 2, 3]
 
 export
 data Regex : Type -> Type where
   Empty : Regex ()
-  Start : Regex ()
-  End   : Regex ()
+  Bound : (start : Bool) -> Regex ()
   Sym   : (Char -> Bool) -> Regex Char
   Seq   : All Regex tys -> Regex $ All Prelude.id tys
   Sel   : All Regex tys -> Regex $ Any Prelude.id tys
-  Rep   : (mi, ma : Conat) -> (0 _ : mi `LTE` ma) => Regex a -> Regex $ BoundedList mi ma a
+  Map   : (a -> b) -> Regex a -> Regex b
+  Rep   : Regex a -> Regex $ List a
 
-x = Rep 4 5 (Sym (== 'a'))
-y = Sel [x, Empty]
+public export
+Functor Regex where
+  map f $ Map f' r = Map (f . f') r
+  map f r = Map f r
+
+export
+optional : Regex a -> Regex $ Maybe a
+optional sub = Sel [sub, Empty] <&> \case Here x => Just x; There (Here ()) => Nothing
+
+repeatN : (n : Nat) -> Regex a -> Regex $ Vect n a
+repeatN Z     _ = Empty <&> \() => []
+repeatN (S n) r = Seq [r, repeatN n r] <&> \[x, xs] => x :: xs
+
+repeatAtMost : (m : Nat) -> Regex a -> Regex $ List a
+repeatAtMost Z     _ = Empty <&> \() => []
+repeatAtMost (S m) r = Sel [Seq [r, repeatAtMost m r] <&> \[x, xs] => x :: xs, Empty] <&> \case Here x => x; There (Here ()) => []
+
+repeatNM : (n, m : Nat) -> (0 _ : n `LTE` m) => Regex a -> Regex $ List a
+repeatNM n m r = Seq [repeatN n r, repeatAtMost (m `minus` n) r] <&> \[l, r] => toList l ++ r
+
+repeatAtLeast : (n : Nat) -> Regex a -> Regex $ List a
+repeatAtLeast n r = Seq [repeatN n r, Rep r] <&> \[ls, rs] => toList ls ++ rs
