@@ -1,10 +1,19 @@
 module Data.Regex
 
+import public Data.Alternative
+import Data.List
 import Data.List.Quantifiers
+import Data.List.Lazy
 import public Data.List1
 import public Data.Vect
 
+import Syntax.IHateParens.List
+
 %default total
+
+----------------------------------------
+--- The type and its implementations ---
+----------------------------------------
 
 export
 data Regex : Type -> Type where
@@ -35,9 +44,28 @@ Alternative Regex where
   empty = Sel [] <&> \case _ impossible
   x <|> y = Sel [x, y] <&> \case Here x => x; There (Here x) => x
 
-export
-optional : Regex a -> Regex $ Maybe a
-optional sub = Just <$> sub <|> pure Nothing
+-------------------
+--- Interpreter ---
+-------------------
+
+--- Return the index after which the unmatched rest is
+matchWhole' : Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
+matchWhole' = go True where
+  go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
+  go atStart (Map f r)     cs      = map @{Compose} f $ go atStart r cs
+  go atStart (Seq rs)      cs      = ?matches'_rhs_1
+  go atStart (Sel rs)      cs      = ?matches_rhs_2
+  go atStart rr@(Rep r)    cs      = go atStart r cs >>= \case (FZ, _) => []; (idx, x) => map (mapFst ?foo) $ go False rr $ assert_smaller cs $ drop (finToNat idx) cs
+  go _       (Bound False) []      = pure (FZ, ())
+  go _       (Bound False) cs      = empty
+  go True    (Bound True)  cs      = pure (FZ, ())
+  go False   (Bound True)  cs      = empty
+  go _       (Sym _)       []      = empty
+  go _       (Sym f)       (c::cs) = whenT (f c) (FZ, c)
+
+------------------------------
+--- Additional combinators ---
+------------------------------
 
 export
 oneOrMore : Regex a -> Regex $ List1 a

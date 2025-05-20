@@ -11,4 +11,5 @@ builddir = ".build"
 
 modules = Data.Regex
 
--- depends =
+depends = best-alternative
+        , i-hate-parens
