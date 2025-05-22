@@ -54,13 +54,22 @@ precDrop : (xs : List a) -> (n : Fin $ S xs.length) -> (ys : List a ** Fin (S ys
 precDrop xs      FZ     = (xs ** id)
 precDrop (x::xs) (FS i) = let (ys ** f) = precDrop xs i in (ys ** FS . f)
 
+lazyAllAnies : All p xs -> LazyList (Any p xs)
+lazyAllAnies [] = []
+lazyAllAnies (x::xs) = Here x :: map There (lazyAllAnies xs)
+
+pushOut : Functor p => Any (p . q) xs -> p $ Any q xs
+pushOut @{fp} (Here v)  = map @{fp} Here v
+pushOut @{fp} (There n) = map @{fp} There $ pushOut n
+
 --- Return the index after which the unmatched rest is
 matchWhole' : Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
 matchWhole' = go True where
   go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
   go atStart (Map f r)      cs      = map @{Compose} f $ go atStart r cs
-  go atStart (Seq rs)       cs      = ?matches_rhs_1
-  go atStart (Sel rs)       cs      = ?matches_rhs_2
+  go atStart (Seq [])       cs      = empty
+  go atStart (Seq $ r::rs)  cs      = go atStart r cs >>= \(idx, x) => let (ds ** f) = precDrop cs idx in bimap f (x::) <$> go (atStart && idx == FZ) (Seq rs) ds
+  go atStart (Sel rs)       cs      = go atStart (assert_smaller rs $ pushOut !(lazyAllAnies rs)) cs
   go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, take (finToNat idx) cs, x)
   go atStart rr@(Rep r)     cs      = go atStart r cs >>= \case
                                         (FZ, _) => []
