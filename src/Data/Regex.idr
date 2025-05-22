@@ -50,6 +50,10 @@ Alternative Regex where
 --- Interpreter ---
 -------------------
 
+precDrop : (xs : List a) -> (n : Fin $ S xs.length) -> (ys : List a ** Fin (S ys.length) -> Fin (S xs.length))
+precDrop xs      FZ     = (xs ** id)
+precDrop (x::xs) (FS i) = let (ys ** f) = precDrop xs i in (ys ** FS . f)
+
 --- Return the index after which the unmatched rest is
 matchWhole' : Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
 matchWhole' = go True where
@@ -58,7 +62,9 @@ matchWhole' = go True where
   go atStart (Seq rs)       cs      = ?matches_rhs_1
   go atStart (Sel rs)       cs      = ?matches_rhs_2
   go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, take (finToNat idx) cs, x)
-  go atStart rr@(Rep r)     cs      = go atStart r cs >>= \case (FZ, _) => []; (idx, x) => map (mapFst ?foo) $ go False rr $ assert_smaller cs $ drop (finToNat idx) cs
+  go atStart rr@(Rep r)     cs      = go atStart r cs >>= \case
+                                        (FZ, _) => []
+                                        (idx, x) => let (ds ** f) = precDrop cs idx in map (bimap f (x::)) $ go False rr $ assert_smaller cs ds
   go _       (Bound False)  []      = pure (FZ, ())
   go _       (Bound False)  cs      = empty
   go True    (Bound True)   cs      = pure (FZ, ())
