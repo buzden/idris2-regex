@@ -17,28 +17,30 @@ import Syntax.IHateParens.List
 
 export
 data Regex : Type -> Type where
-  Map   : (a -> b) -> Regex a -> Regex b
+  Map       : (a -> b) -> Regex a -> Regex b
 
-  Seq   : Lazy (All Regex tys) -> Regex $ All Prelude.id tys -- empty list always matches
-  Sel   : Lazy (All Regex tys) -> Regex $ Any Prelude.id tys -- empty list never matches
+  Seq       : Lazy (All Regex tys) -> Regex $ All Prelude.id tys -- empty list always matches
+  Sel       : Lazy (All Regex tys) -> Regex $ Any Prelude.id tys -- empty list never matches
 
-  Rep   : Regex a -> Regex $ List a
+  WithMatch : Regex a -> Regex (List Char, a)
 
-  Bound : (start : Bool) -> Regex ()
-  Sym   : (Char -> Bool) -> Regex Char
+  Rep       : Regex a -> Regex $ List a
+
+  Bound     : (start : Bool) -> Regex ()
+  Sym       : (Char -> Bool) -> Regex Char
 
 public export
 Functor Regex where
   map f $ Map f' r = Map (f . f') r
   map f r          = Map f r
 
--- TODO to implement `Seq` fusion (looking inside `Map` too)
+-- TODO to implement `Seq` fusion (looking inside `Map` and `WithMatch` too)
 public export
 Applicative Regex where
   pure x = Seq [] <&> const x
   x <*> y = Seq [x, y] <&> \[l, r] => l r
 
--- TODO to implement `Sel` fusion (looking inside `Map` too)
+-- TODO to implement `Sel` fusion (looking inside `Map` and `WithMatch` too)
 public export
 Alternative Regex where
   empty = Sel [] <&> \case _ impossible
@@ -52,16 +54,17 @@ Alternative Regex where
 matchWhole' : Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
 matchWhole' = go True where
   go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
-  go atStart (Map f r)     cs      = map @{Compose} f $ go atStart r cs
-  go atStart (Seq rs)      cs      = ?matches'_rhs_1
-  go atStart (Sel rs)      cs      = ?matches_rhs_2
-  go atStart rr@(Rep r)    cs      = go atStart r cs >>= \case (FZ, _) => []; (idx, x) => map (mapFst ?foo) $ go False rr $ assert_smaller cs $ drop (finToNat idx) cs
-  go _       (Bound False) []      = pure (FZ, ())
-  go _       (Bound False) cs      = empty
-  go True    (Bound True)  cs      = pure (FZ, ())
-  go False   (Bound True)  cs      = empty
-  go _       (Sym _)       []      = empty
-  go _       (Sym f)       (c::cs) = whenT (f c) (FZ, c)
+  go atStart (Map f r)      cs      = map @{Compose} f $ go atStart r cs
+  go atStart (Seq rs)       cs      = ?matches_rhs_1
+  go atStart (Sel rs)       cs      = ?matches_rhs_2
+  go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, take (finToNat idx) cs, x)
+  go atStart rr@(Rep r)     cs      = go atStart r cs >>= \case (FZ, _) => []; (idx, x) => map (mapFst ?foo) $ go False rr $ assert_smaller cs $ drop (finToNat idx) cs
+  go _       (Bound False)  []      = pure (FZ, ())
+  go _       (Bound False)  cs      = empty
+  go True    (Bound True)   cs      = pure (FZ, ())
+  go False   (Bound True)   cs      = empty
+  go _       (Sym _)        []      = empty
+  go _       (Sym f)        (c::cs) = whenT (f c) (FZ, c)
 
 ------------------------------
 --- Additional combinators ---
