@@ -65,21 +65,26 @@ pushOut @{fp} (There n) = map @{fp} There $ pushOut n
 --- Return the index after which the unmatched rest is
 matchWhole' : Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
 matchWhole' = go True where
+  cutgo : forall a. Bool -> Regex b -> (str : List Char) -> (cut : Fin $ S str.length) -> (b -> a) -> LazyList (Fin $ S str.length, a)
   go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
   go atStart (Map f r)      cs      = map @{Compose} f $ go atStart r cs
-  go atStart (Seq [])       cs      = empty
-  go atStart (Seq $ r::rs)  cs      = go atStart r cs >>= \(idx, x) => let (ds ** f) = precDrop cs idx in bimap f (x::) <$> go (atStart && idx == FZ) (Seq rs) ds
+  go atStart (Seq [])       cs      = pure (FZ, [])
+  go atStart (Seq $ r::rs)  cs      = go atStart r cs >>= \(idx, x) => cutgo (atStart && idx == FZ) (Seq rs) cs idx (x::)
   go atStart (Sel rs)       cs      = go atStart (assert_smaller rs $ pushOut !(lazyAllAnies rs)) cs
   go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, take (finToNat idx) cs, x)
-  go atStart rr@(Rep r)     cs      = go atStart r cs >>= \case
-                                        (FZ, _) => []
-                                        (idx, x) => let (ds ** f) = precDrop cs idx in map (bimap f (x::)) $ go False rr $ assert_smaller cs ds
-  go _       (Bound False)  []      = pure (FZ, ())
+  go atStart rr@(Rep r)     cs      = case go atStart r cs of
+                                        [] => pure (FZ, [])
+                                        xs => xs >>= \case
+                                          (FZ, x) => pure $ (FZ, [x])
+                                          (idx@(FS _), x) => assert_total $ cutgo False rr cs idx (x::)
+  go _       (Bound False)  []      = pure (FZ, ()) --           \--- we can assert that b/o `idx` is `FS`, so `ds < cs`
   go _       (Bound False)  cs      = empty
   go True    (Bound True)   cs      = pure (FZ, ())
   go False   (Bound True)   cs      = empty
   go _       (Sym _)        []      = empty
-  go _       (Sym f)        (c::cs) = whenT (f c) (FZ, c)
+  go _       (Sym f)        (c::cs) = whenT (f c) (1, c)
+
+  cutgo atStart r cs cut g = let (ds ** f) = precDrop cs cut in bimap f g <$> go atStart r ds
 
 ------------------------------
 --- Additional combinators ---
