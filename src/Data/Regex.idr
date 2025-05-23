@@ -24,7 +24,7 @@ data Regex : Type -> Type where
 
   WithMatch : Regex a -> Regex (List Char, a)
 
-  Rep       : Regex a -> Regex $ List a
+  Rep1      : Regex a -> Regex $ List1 a
 
   Bound     : (start : Bool) -> Regex ()
   Sym       : (Char -> Bool) -> Regex Char
@@ -72,12 +72,10 @@ matchWhole' = go True where
   go atStart (Seq $ r::rs)  cs      = go atStart r cs >>= \(idx, x) => cutgo (atStart && idx == FZ) (Seq rs) cs idx (x::)
   go atStart (Sel rs)       cs      = go atStart (assert_smaller rs $ pushOut !(lazyAllAnies rs)) cs
   go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, take (finToNat idx) cs, x)
-  go atStart rr@(Rep r)     cs      = case go atStart r cs of
-                                        [] => pure (FZ, [])
-                                        xs => xs >>= \case
-                                          (FZ, x) => pure $ (FZ, [x])
-                                          (idx@(FS _), x) => assert_total $ cutgo False rr cs idx (x::)
-  go _       (Bound False)  []      = pure (FZ, ()) --           \--- we can assert that b/o `idx` is `FS`, so `ds < cs`
+  go atStart rr@(Rep1 r)    cs      = go atStart r cs >>= \case
+                                        (FZ, x) => pure (FZ, singleton x)
+                                        (idx, x) => assert_total $ cutgo False (toList <$> rr <|> pure []) cs idx (x:::)
+  go _       (Bound False)  []      = pure (FZ, ()) --    \--- we can assert that b/o `idx` is `FS`, so `ds < cs`
   go _       (Bound False)  cs      = empty
   go True    (Bound True)   cs      = pure (FZ, ())
   go False   (Bound True)   cs      = empty
@@ -91,8 +89,12 @@ matchWhole' = go True where
 ------------------------------
 
 export
-oneOrMore : Regex a -> Regex $ List1 a
-oneOrMore r = [| r ::: Rep r |]
+rep1 : Regex a -> Regex $ List1 a
+rep1 = Rep1
+
+export
+rep : Regex a -> Regex $ List a
+rep r = toList <$> Rep1 r <|> pure []
 
 export
 repeatN : (n : Nat) -> Regex a -> Regex $ Vect n a
@@ -102,7 +104,7 @@ repeatN (S n) r = [| r :: repeatN n r |]
 
 export
 repeatAtLeast : (n : Nat) -> Regex a -> Regex $ List a
-repeatAtLeast n r = [| map toList (repeatN n r) ++ Rep r |]
+repeatAtLeast n r = [| map toList (repeatN n r) ++ rep r |]
 
 export
 repeatAtMost : (m : Nat) -> Regex a -> Regex $ List a
