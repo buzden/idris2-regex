@@ -65,8 +65,10 @@ pushOut @{fp} (There n) = map @{fp} There $ pushOut n
 --- Return the index after which the unmatched rest is
 matchWhole' : Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
 matchWhole' = go True where
-  cutgo : forall a. Bool -> Regex b -> (str : List Char) -> (cut : Fin $ S str.length) -> (b -> a) -> LazyList (Fin $ S str.length, a)
   go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
+  cutgo : forall a. Bool -> Regex b -> (str : List Char) -> (cut : Fin $ S str.length) -> (b -> a) -> LazyList (Fin $ S str.length, a)
+  cutgo atStart r cs cut g = let (ds ** f) = precDrop cs cut in bimap f g <$> go atStart r ds
+
   go atStart (Map f r)      cs      = map @{Compose} f $ go atStart r cs
   go atStart (Seq [])       cs      = pure (FZ, [])
   go atStart (Seq $ r::rs)  cs      = go atStart r cs >>= \(idx, x) => cutgo (atStart && idx == FZ) (Seq rs) cs idx (x::)
@@ -82,7 +84,6 @@ matchWhole' = go True where
   go _       (Sym _)        []      = empty
   go _       (Sym f)        (c::cs) = whenT (f c) (1, c)
 
-  cutgo atStart r cs cut g = let (ds ** f) = precDrop cs cut in bimap f g <$> go atStart r ds
 
 ------------------------------
 --- Additional combinators ---
