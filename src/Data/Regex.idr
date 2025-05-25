@@ -24,7 +24,7 @@ data Regex : Type -> Type where
 
   WithMatch : Regex a -> Regex (List Char, a)
 
-  Rep       : Regex a -> Regex $ List a
+  Rep1      : Regex a -> Regex $ List1 a
 
   Bound     : (start : Bool) -> Regex ()
   Sym       : (Char -> Bool) -> Regex Char
@@ -80,9 +80,8 @@ matchWhole' = go True where
   go atStart (Seq $ r::rs)  cs      = go atStart r cs >>= \(idx, x) => cutgo (atStart && idx == FZ) (Seq rs) cs idx (x::)
   go atStart (Sel rs)       cs      = go atStart (assert_smaller rs $ pushOut !(lazyAllAnies rs)) cs
   go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, take (finToNat idx) cs, x)
-  go atStart rr@(Rep r)     cs      = do let xs@(_::_) = go atStart r cs | [] => pure (FZ, [])
-                                         (idx@(FS _), x) <- xs | (FZ, x) => pure (FZ, singleton x)
-                                         case assert_total $ cutgo False rr cs idx (x::) of -- we can assert that b/o `idx` is `FS`, so `ds < cs`
+  go atStart rr@(Rep1 r)    cs      = do (idx@(FS _), x) <- go atStart r cs | (FZ, x) => pure (FZ, singleton x)
+                                         case assert_total $ cutgo False rr cs idx $ (x:::) . toList of -- we can assert that b/o `idx` is `FS`, so `ds < cs`
                                            [] => pure (idx, singleton x)
                                            xs => xs
   go _       (Bound False)  []      = pure (FZ, ())
@@ -96,13 +95,13 @@ matchWhole' = go True where
 --- Additional combinators ---
 ------------------------------
 
-export %inline
-rep : Regex a -> Regex $ List a
-rep = Rep
-
 export
+rep : Regex a -> Regex $ List a
+rep r = toList <$> Rep1 r <|> pure []
+
+export %inline
 rep1 : Regex a -> Regex $ List1 a
-rep1 r = [| r ::: rep r |]
+rep1 = Rep1
 
 export
 repeatN : (n : Nat) -> Regex a -> Regex $ Vect n a
