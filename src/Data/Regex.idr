@@ -80,10 +80,10 @@ matchWhole' = go True where
   go atStart (Seq $ r::rs)  cs      = go atStart r cs >>= \(idx, x) => cutgo (atStart && idx == FZ) (Seq rs) cs idx (x::)
   go atStart (Sel rs)       cs      = go atStart (assert_smaller rs $ pushOut !(lazyAllAnies rs)) cs
   go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, take (finToNat idx) cs, x)
-  go atStart rr@(Rep r)     cs      = do let xs = go atStart r cs | [] => pure (FZ, [])
-                                         (idx@(FS _), x) <- xs | (FZ, x) => pure (FZ, [x])
-                                         case assert_total $ cutgo False rr cs idx (x::) of
-                                           [] => pure (FZ, [x]) --    \--- we can assert that b/o `idx` is `FS`, so `ds < cs`
+  go atStart rr@(Rep r)     cs      = do let xs@(_::_) = go atStart r cs | [] => pure (FZ, [])
+                                         (idx@(FS _), x) <- xs | (FZ, x) => pure (FZ, singleton x)
+                                         case assert_total $ cutgo False rr cs idx (x::) of -- we can assert that b/o `idx` is `FS`, so `ds < cs`
+                                           [] => pure (idx, singleton x)
                                            xs => xs
   go _       (Bound False)  []      = pure (FZ, ())
   go _       (Bound False)  cs      = empty
