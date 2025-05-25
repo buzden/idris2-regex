@@ -46,6 +46,12 @@ Alternative Regex where
   empty = Sel [] <&> \case _ impossible
   x <|> y = Sel [x, y] <&> \case Here x => x; There (Here x) => x
 
+-- TODO to be removed as soon as it's merged to the upstream
+export
+All (Show . p) xs => Show (Any p xs) where
+  showPrec d @{s::ss} (Here x)  = showCon d "Here"  $ showArg x
+  showPrec d @{s::ss} (There x) = showCon d "There" $ showArg x
+
 -------------------
 --- Interpreter ---
 -------------------
