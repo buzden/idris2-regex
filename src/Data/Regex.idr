@@ -68,28 +68,43 @@ pushOut : Functor p => Any (p . q) xs -> p $ Any q xs
 pushOut @{fp} (Here v)  = map @{fp} Here v
 pushOut @{fp} (There n) = map @{fp} There $ pushOut n
 
+hasntMove : Maybe (Fin $ S n) -> Bool
+hasntMove Nothing       = True
+hasntMove (Just FZ)     = True
+hasntMove (Just $ FS _) = False
+
+filterNothings : LazyList (Maybe a, b) -> LazyList (Maybe a, b)
+filterNothings xs = case filter (isJust . fst) xs of [] => xs; xs' => xs'
+
 --- Return the index after which the unmatched rest is
-matchWhole' : Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
-matchWhole' = go True where
-  go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Fin $ S str.length, a)
-  cutgo : forall a. Bool -> Regex b -> (str : List Char) -> (cut : Fin $ S str.length) -> (b -> a) -> LazyList (Fin $ S str.length, a)
-  cutgo atStart r cs cut g = let (ds ** f) = precDrop cs cut in bimap f g <$> go atStart r ds
+matchWhole' : Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+matchWhole' = go' True where
+  go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+  go' : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+  go' atStart r cs = filterNothings $ go atStart r cs
+  cutgo : forall a. Bool -> Regex b -> (str : List Char) -> (cut : Maybe $ Fin $ S str.length) -> (b -> a) -> LazyList (Maybe $ Fin $ S str.length, a)
+  cutgo atStart r cs cut g = do
+    let (ds ** f) = precDrop cs $ fromMaybe FZ cut
+    let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
+        convIdx $ Just i = Just $ f i
+        convIdx Nothing  = cut <&> const (f FZ)
+    bimap convIdx g <$> go' atStart r ds
 
   go atStart (Map f r)      cs      = map @{Compose} f $ go atStart r cs
-  go atStart (Seq [])       cs      = pure (FZ, [])
-  go atStart (Seq $ r::rs)  cs      = go atStart r cs >>= \(idx, x) => cutgo (atStart && idx == FZ) (Seq rs) cs idx (x::)
-  go atStart (Sel rs)       cs      = go atStart (assert_smaller rs $ pushOut !(lazyAllAnies rs)) cs
-  go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, take (finToNat idx) cs, x)
-  go atStart rr@(Rep1 r)    cs      = do (idx@(FS _), x) <- go atStart r cs | (FZ, x) => pure (FZ, singleton x)
+  go atStart (Seq [])       cs      = pure (Nothing, [])
+  go atStart (Seq $ r::rs)  cs      = go' atStart r cs >>= \(idx, x) => cutgo (atStart && hasntMove idx) (Seq rs) cs idx (x::)
+  go atStart (Sel rs)       cs      = go' atStart (assert_smaller rs $ pushOut !(lazyAllAnies rs)) cs
+  go atStart (WithMatch rs) cs      = go' atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
+  go atStart rr@(Rep1 r)    cs      = do (idx@(Just $ FS _), x) <- go' atStart r cs | (idx, x) => pure (idx, singleton x)
                                          case assert_total $ cutgo False rr cs idx $ (x:::) . toList of -- we can assert that b/o `idx` is `FS`, so `ds < cs`
                                            [] => pure (idx, singleton x)
                                            xs => xs
-  go _       (Bound False)  []      = pure (FZ, ())
+  go _       (Bound False)  []      = pure (Just FZ, ())
   go _       (Bound False)  cs      = empty
-  go True    (Bound True)   cs      = pure (FZ, ())
+  go True    (Bound True)   cs      = pure (Just FZ, ())
   go False   (Bound True)   cs      = empty
   go _       (Sym _)        []      = empty
-  go _       (Sym f)        (c::cs) = whenT (f c) (1, c)
+  go _       (Sym f)        (c::cs) = whenT (f c) (Just 1, c)
 
 ------------------------------
 --- Additional combinators ---
