@@ -83,9 +83,11 @@ matchWhole' = go True where
   go atStart rr@(Rep r)     cs      = case go atStart r cs of
                                         [] => pure (FZ, [])
                                         xs => xs >>= \case
-                                          (FZ, x) => pure $ (FZ, [x])
-                                          (idx@(FS _), x) => assert_total $ cutgo False rr cs idx (x::)
-  go _       (Bound False)  []      = pure (FZ, ()) --    \--- we can assert that b/o `idx` is `FS`, so `ds < cs`
+                                          (FZ, x) => pure (FZ, [x])
+                                          (idx@(FS _), x) => case assert_total $ cutgo False rr cs idx (x::) of
+                                            [] => pure (FZ, [x]) --    \--- we can assert that b/o `idx` is `FS`, so `ds < cs`
+                                            xs => xs
+  go _       (Bound False)  []      = pure (FZ, ())
   go _       (Bound False)  cs      = empty
   go True    (Bound True)   cs      = pure (FZ, ())
   go False   (Bound True)   cs      = empty
