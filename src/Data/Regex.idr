@@ -87,7 +87,7 @@ matchWhole' = go' True where
     let (ds ** f) = precDrop cs $ fromMaybe FZ cut
     let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
         convIdx $ Just i = Just $ f i
-        convIdx Nothing  = cut <&> const (f FZ)
+        convIdx Nothing  = cut $> f FZ
     bimap convIdx g <$> go' atStart r ds
 
   go atStart (Map f r)      cs      = map @{Compose} f $ go atStart r cs
