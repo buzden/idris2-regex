@@ -24,7 +24,7 @@ data Regex : Type -> Type where
 
   WithMatch : Regex a -> Regex (List Char, a)
 
-  Rep1      : Regex a -> Regex $ List1 a
+  Rep       : Regex a -> Regex $ List a
 
   Bound     : (start : Bool) -> Regex ()
   Sym       : (Char -> Bool) -> Regex Char
@@ -80,9 +80,11 @@ matchWhole' = go True where
   go atStart (Seq $ r::rs)  cs      = go atStart r cs >>= \(idx, x) => cutgo (atStart && idx == FZ) (Seq rs) cs idx (x::)
   go atStart (Sel rs)       cs      = go atStart (assert_smaller rs $ pushOut !(lazyAllAnies rs)) cs
   go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, take (finToNat idx) cs, x)
-  go atStart rr@(Rep1 r)    cs      = go atStart r cs >>= \case
-                                        (FZ, x) => pure (FZ, singleton x)
-                                        (idx, x) => assert_total $ cutgo False (toList <$> rr <|> pure []) cs idx (x:::)
+  go atStart rr@(Rep r)     cs      = case go atStart r cs of
+                                        [] => pure (FZ, [])
+                                        xs => xs >>= \case
+                                          (FZ, x) => pure $ (FZ, [x])
+                                          (idx@(FS _), x) => assert_total $ cutgo False rr cs idx (x::)
   go _       (Bound False)  []      = pure (FZ, ()) --    \--- we can assert that b/o `idx` is `FS`, so `ds < cs`
   go _       (Bound False)  cs      = empty
   go True    (Bound True)   cs      = pure (FZ, ())
@@ -90,18 +92,17 @@ matchWhole' = go True where
   go _       (Sym _)        []      = empty
   go _       (Sym f)        (c::cs) = whenT (f c) (1, c)
 
-
 ------------------------------
 --- Additional combinators ---
 ------------------------------
 
-export
-rep1 : Regex a -> Regex $ List1 a
-rep1 = Rep1
+export %inline
+rep : Regex a -> Regex $ List a
+rep = Rep
 
 export
-rep : Regex a -> Regex $ List a
-rep r = toList <$> Rep1 r <|> pure []
+rep1 : Regex a -> Regex $ List1 a
+rep1 r = [| r ::: rep r |]
 
 export
 repeatN : (n : Nat) -> Regex a -> Regex $ Vect n a
