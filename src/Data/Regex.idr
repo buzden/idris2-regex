@@ -78,27 +78,26 @@ filterNothings xs = case filter (isJust . fst) xs of [] => xs; xs' => xs'
 
 --- Return the index after which the unmatched rest is
 matchWhole' : Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-matchWhole' = go' True where
+matchWhole' = go True where
   go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-  go' : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-  go' atStart r cs = filterNothings $ go atStart r cs
   cutgo : forall a. Bool -> Regex b -> (str : List Char) -> (cut : Maybe $ Fin $ S str.length) -> (b -> a) -> LazyList (Maybe $ Fin $ S str.length, a)
   cutgo atStart r cs cut g = do
     let (ds ** f) = precDrop cs $ fromMaybe FZ cut
     let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
         convIdx $ Just i = Just $ f i
         convIdx Nothing  = cut $> f FZ
-    bimap convIdx g <$> go' atStart r ds
+    filterNothings $ bimap convIdx g <$> go atStart r ds
 
   go atStart (Map f r)      cs      = map @{Compose} f $ go atStart r cs
   go atStart (Seq [])       cs      = pure (Nothing, [])
-  go atStart (Seq $ r::rs)  cs      = go' atStart r cs >>= \(idx, x) => cutgo (atStart && hasntMove idx) (Seq rs) cs idx (x::)
-  go atStart (Sel rs)       cs      = go' atStart (assert_smaller rs $ pushOut !(lazyAllAnies rs)) cs
-  go atStart (WithMatch rs) cs      = go' atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
-  go atStart rr@(Rep1 r)    cs      = do (idx@(Just $ FS _), x) <- go' atStart r cs | (idx, x) => pure (idx, singleton x)
-                                         case assert_total $ cutgo False rr cs idx $ (x:::) . toList of -- can assert b/o `idx` is `FS`, so `ds < cs`
-                                           [] => pure (idx, singleton x)
-                                           xs => xs
+  go atStart (Seq $ r::rs)  cs      = filterNothings $ go atStart r cs >>= \(idx, x) => cutgo (atStart && hasntMove idx) (Seq rs) cs idx (x::)
+  go atStart (Sel rs)       cs      = filterNothings $ lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
+  go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
+  go atStart rr@(Rep1 r)    cs      = filterNothings $ do
+                                        (idx@(Just $ FS _), x) <- go atStart r cs | (idx, x) => pure (idx, singleton x)
+                                        case assert_total $ cutgo False rr cs idx $ (x:::) . toList of -- can assert b/o `idx` is `FS`, so `ds < cs`
+                                          [] => pure (idx, singleton x)
+                                          xs => xs
   go _       (Bound False)  []      = pure (Just FZ, ())
   go _       (Bound False)  cs      = empty
   go True    (Bound True)   cs      = pure (Just FZ, ())
