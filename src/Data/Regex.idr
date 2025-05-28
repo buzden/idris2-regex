@@ -2,12 +2,12 @@ module Data.Regex
 
 import public Data.Alternative
 import Data.List
-import Data.List.Quantifiers
-import Data.List.Lazy
+import public Data.List.Quantifiers
+import public Data.List.Lazy
 import public Data.List1
 import public Data.Vect
 
-import Syntax.IHateParens.List
+import public Syntax.IHateParens.List
 
 %default total
 
@@ -77,8 +77,9 @@ filterNothings : LazyList (Maybe a, b) -> LazyList (Maybe a, b)
 filterNothings xs = case filter (isJust . fst) xs of [] => xs; xs' => xs'
 
 --- Return the index after which the unmatched rest is
-matchWhole' : Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-matchWhole' = go True where
+export
+rawMatch : Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+rawMatch = go True where
   go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
   cutgo : forall a. Bool -> Regex b -> (str : List Char) -> (cut : Maybe $ Fin $ S str.length) -> (b -> a) -> LazyList (Maybe $ Fin $ S str.length, a)
   cutgo atStart r cs cut g = do
@@ -136,6 +137,49 @@ export
 repeatNM : (n, m : Nat) -> (0 _ : n `LTE` m) => Regex a -> Regex $ List a
 repeatNM n m r = [| map toList (repeatN n r) ++ repeatAtMost (m `minus` n) r |]
 
+------------------------
+--- Particular cases ---
+------------------------
+
+||| Always matches without consuming any symbol.
+export %inline
+omega : Regex ()
+omega = pure ()
+
+||| Matches a symbol satisfying the given predicate, and returns the matched char, or fails.
+export %inline
+sym : (Char -> Bool) -> Regex Char
+sym = Sym
+
+||| Matches the given symbol and returns it, or fails.
+export %inline
+char : Char -> Regex Char
+char = sym . (==)
+
+||| Matches the start of the line/text
 export
-string : String -> Regex ()
-string str = map (const ()) $ sequence $ unpack str <&> \k => Sym (== k)
+sol : Regex ()
+sol = Bound True
+
+||| Matches the end of the line/text
+export
+eol : Regex ()
+eol = Bound False
+
+export %inline
+withMatch : Regex a -> Regex (String, a)
+withMatch = map (mapFst pack) . WithMatch
+
+export
+string : String -> Regex String
+string = map pack . sequence . map char . unpack
+
+||| Matches all of given sub-regexes, sequentially.
+export %inline
+all : All Regex tys -> Regex $ HList tys
+all = Seq . delay
+
+||| Matches is there exists at least one sub-regex that matches.
+export %inline
+exists : All Regex tys -> Regex $ Any Prelude.id tys
+exists = Sel . delay
