@@ -105,9 +105,10 @@ rawMatch = go True where
   go atStart (Sel rs)       cs      = filterNothings $ lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
   go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
   go atStart rr@(Rep1 r)    cs      = filterNothings $ do
-                                        (idx@(Just $ FS _), x) <- go atStart r cs | (idx, x) => pure (idx, singleton x)
-                                        case assert_total $ cutgo False rr cs idx $ (x:::) . toList of -- can assert b/o `idx` is `FS`, so `ds < cs`
-                                          [] => pure (idx, singleton x)
+                                        (Just idx@(FS _), x) <- go atStart r cs | (idx, x) => pure (idx, singleton x)
+                                        let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
+                                        case filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds) of
+                                          [] => pure (Just idx, singleton x)
                                           xs => xs
   go _       (Bound False)  []      = pure (Just FZ, ())
   go _       (Bound False)  cs      = empty
