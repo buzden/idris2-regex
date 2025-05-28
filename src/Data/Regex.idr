@@ -52,6 +52,16 @@ All (Show . p) xs => Show (Any p xs) where
   showPrec d @{s::ss} (Here x)  = showCon d "Here"  $ showArg x
   showPrec d @{s::ss} (There x) = showCon d "There" $ showArg x
 
+export
+[LowLevel] Show (Regex a) where
+  showPrec d $ Map f r     = showCon d "Map" $ " <fun>" ++ showArg r
+  showPrec d $ Seq rs      = showCon d "Seq" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
+  showPrec d $ Sel rs      = showCon d "Sel" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
+  showPrec d $ WithMatch r = showCon d "WithMatch" $ showArg r
+  showPrec d $ Rep1 r      = showCon d "Rep1" $ showArg r
+  showPrec d $ Bound start = showCon d "Bound" $ showArg start
+  showPrec d $ Sym f       = showCon d "Sym" " <fun>"
+
 -------------------
 --- Interpreter ---
 -------------------
