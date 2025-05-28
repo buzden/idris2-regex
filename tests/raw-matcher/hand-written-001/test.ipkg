@@ -1,0 +1,6 @@
+package test
+
+executable = test
+main = Test
+
+depends = regex

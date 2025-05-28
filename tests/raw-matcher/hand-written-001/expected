@@ -1,0 +1,245 @@
+
+- regex: Sym <fun>
+
+  - input string: "a":
+    - (Just 1, 'a')
+
+  - input string: "ab":
+    - (Just 1, 'a')
+
+- regex: Seq [Sym <fun>]
+
+  - input string: "a":
+    - (Just 1, ['a'])
+
+  - input string: "ab":
+    - (Just 1, ['a'])
+
+- regex: Seq [Sym <fun>, Sym <fun>]
+
+  - input string: "ab":
+    - (Just 2, ['a', 'b'])
+
+  - input string: "aba":
+    - (Just 2, ['a', 'b'])
+
+  - input string: "abb":
+    - (Just 2, ['a', 'b'])
+
+- regex: Bound False
+
+  - input string: "":
+    - (Just 0, ())
+
+  - input string: "abc":
+      <none>
+
+- regex: Bound True
+
+  - input string: "":
+    - (Just 0, ())
+
+  - input string: "abc":
+    - (Just 0, ())
+
+- regex: Map <fun> (Seq [Map <fun> (Seq [Map <fun> (Seq []), Sym <fun>]), Map <fun> (Seq [Map <fun> (Seq [Map <fun> (Seq []), Sym <fun>]), Map <fun> (Seq [Map <fun> (Seq [Map <fun> (Seq []), Sym <fun>]), Map <fun> (Seq [])])])])
+
+  - input string: "0abc1":
+      <none>
+
+  - input string: "abc1":
+    - (Just 3, "abc")
+
+  - input string: "bc1":
+      <none>
+
+  - input string: "0abc":
+      <none>
+
+  - input string: "0ab":
+      <none>
+
+- regex: Map <fun> (Seq [Map <fun> (Seq [Map <fun> (Seq []), Map <fun> (Sel [Map <fun> (Rep1 (Sym <fun>)), Map <fun> (Seq [])])]), Sym <fun>])
+
+  - input string: "aaab":
+    - (Just 4, (['a', 'a', 'a'], 'b'))
+
+  - input string: "aab":
+    - (Just 3, (['a', 'a'], 'b'))
+
+  - input string: "ab":
+    - (Just 2, (['a'], 'b'))
+
+  - input string: "b":
+    - (Just 1, ([], 'b'))
+
+  - input string: "":
+      <none>
+
+- regex: Seq [Sel [Sel [Sym <fun>, Map <fun> (Seq [])], Sym <fun>], Sel [Sel [Sym <fun>, Map <fun> (Seq [])], Sym <fun>]]
+
+  - input string: "abab":
+    - (Just 2, [Here (Here 'a'), There (Here 'b')])
+
+  - input string: "baba":
+    - (Just 2, [There (Here 'b'), Here (Here 'a')])
+
+- regex: Map <fun> (Sel [Map <fun> (Rep1 (Seq [Sym <fun>, Sym <fun>])), Map <fun> (Seq [])])
+
+  - input string: "aabab":
+    - (Nothing, [])
+
+  - input string: "abab":
+    - (Just 4, [['a', 'b'], ['a', 'b']])
+
+  - input string: "aba":
+    - (Just 2, [['a', 'b']])
+
+  - input string: "ab":
+    - (Just 2, [['a', 'b']])
+
+  - input string: "b":
+    - (Nothing, [])
+
+  - input string: "":
+    - (Nothing, [])
+
+- regex: Map <fun> (Sel [Map <fun> (Rep1 (Map <fun> (Seq [Map <fun> (Seq [Map <fun> (Seq []), Map <fun> (Sel [Map <fun> (Rep1 (Sym <fun>)), Map <fun> (Seq [])])]), Sym <fun>]))), Map <fun> (Seq [])])
+
+  - input string: "aaab":
+    - (Just 4, [(['a', 'a', 'a'], 'b')])
+
+  - input string: "aab":
+    - (Just 3, [(['a', 'a'], 'b')])
+
+  - input string: "ab":
+    - (Just 2, [(['a'], 'b')])
+
+  - input string: "b":
+    - (Just 1, [([], 'b')])
+
+  - input string: "":
+    - (Nothing, [])
+
+- regex: Map <fun> (Sel [Map <fun> (Rep1 (Seq [Map <fun> (Sel [Map <fun> (Rep1 (Sym <fun>)), Map <fun> (Seq [])]), Sym <fun>])), Map <fun> (Seq [])])
+
+  - input string: "aaab":
+    - (Just 4, [[['a', 'a', 'a'], 'b']])
+
+  - input string: "aab":
+    - (Just 3, [[['a', 'a'], 'b']])
+
+  - input string: "ab":
+    - (Just 2, [[['a'], 'b']])
+
+  - input string: "b":
+    - (Just 1, [[[], 'b']])
+
+  - input string: "":
+    - (Nothing, [])
+
+- regex: Map <fun> (Sel [Map <fun> (Rep1 (Seq [Rep1 (Sym <fun>), Sym <fun>])), Map <fun> (Seq [])])
+
+  - input string: "aaab":
+    - (Just 4, [[['a', 'a', 'a'], 'b']])
+
+  - input string: "aab":
+    - (Just 3, [[['a', 'a'], 'b']])
+
+  - input string: "ab":
+    - (Just 2, [[['a'], 'b']])
+
+  - input string: "b":
+    - (Nothing, [])
+
+  - input string: "":
+    - (Nothing, [])
+
+- regex: Map <fun> (Sel [Map <fun> (Rep1 (Seq [Sym <fun>, Map <fun> (Sel [Map <fun> (Rep1 (Sym <fun>)), Map <fun> (Seq [])]), Sym <fun>])), Map <fun> (Seq [])])
+
+  - input string: "aaab":
+    - (Just 4, [['a', ['a', 'a'], 'b']])
+
+  - input string: "aab":
+    - (Just 3, [['a', ['a'], 'b']])
+
+  - input string: "ab":
+    - (Just 2, [['a', [], 'b']])
+
+  - input string: "b":
+    - (Nothing, [])
+
+  - input string: "":
+    - (Nothing, [])
+
+- regex: Map <fun> (Sel [Map <fun> (Rep1 (Seq [Map <fun> (Sel [Map <fun> (Rep1 (Sym <fun>)), Map <fun> (Seq [])]), Sym <fun>, Sym <fun>])), Map <fun> (Seq [])])
+
+  - input string: "aaab":
+    - (Nothing, [])
+
+  - input string: "aab":
+    - (Nothing, [])
+
+  - input string: "ab":
+    - (Nothing, [])
+
+  - input string: "b":
+    - (Nothing, [])
+
+  - input string: "":
+    - (Nothing, [])
+
+- regex: Map <fun> (Sel [Map <fun> (Rep1 (Sel [Map <fun> (Sel [Map <fun> (Rep1 (Sym <fun>)), Map <fun> (Seq [])]), Sym <fun>])), Map <fun> (Seq [])])
+
+  - input string: "aaab":
+    - (Just 4, [Here ['a', 'a', 'a'], There (Here 'b')])
+
+  - input string: "aab":
+    - (Just 3, [Here ['a', 'a'], There (Here 'b')])
+
+  - input string: "ab":
+    - (Just 2, [Here ['a'], There (Here 'b')])
+
+  - input string: "b":
+    - (Just 1, [There (Here 'b')])
+
+  - input string: "":
+    - (Nothing, [Here []])
+    - (Nothing, [])
+
+- regex: Map <fun> (Sel [Map <fun> (Rep1 (Sel [Map <fun> (Sel [Map <fun> (Rep1 (Sym <fun>)), Map <fun> (Seq [])]), Map <fun> (Sel [Map <fun> (Rep1 (Sym <fun>)), Map <fun> (Seq [])]), Sym <fun>])), Map <fun> (Seq [])])
+
+  - input string: "aaab":
+    - (Just 4, [Here ['a', 'a', 'a'], There (There (Here 'b'))])
+
+  - input string: "aab":
+    - (Just 3, [Here ['a', 'a'], There (There (Here 'b'))])
+
+  - input string: "ab":
+    - (Just 2, [Here ['a'], There (There (Here 'b'))])
+
+  - input string: "b":
+    - (Just 1, [There (There (Here 'b'))])
+
+  - input string: "":
+    - (Nothing, [Here []])
+    - (Nothing, [There (Here [])])
+    - (Nothing, [])
+
+- regex: Map <fun> (Sel [Map <fun> (Rep1 (Sel [Map <fun> (Sel [Map <fun> (Rep1 (Sym <fun>)), Map <fun> (Seq [])]), Map <fun> (Sel []), Sym <fun>])), Map <fun> (Seq [])])
+
+  - input string: "aaab":
+    - (Just 4, [Here ['a', 'a', 'a'], There (There (Here 'b'))])
+
+  - input string: "aab":
+    - (Just 3, [Here ['a', 'a'], There (There (Here 'b'))])
+
+  - input string: "ab":
+    - (Just 2, [Here ['a'], There (There (Here 'b'))])
+
+  - input string: "b":
+    - (Just 1, [There (There (Here 'b'))])
+
+  - input string: "":
+    - (Nothing, [Here []])
+    - (Nothing, [])
