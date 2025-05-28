@@ -91,17 +91,14 @@ export
 rawMatch : Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
 rawMatch = go True where
   go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-  cutgo : forall a. Bool -> Regex b -> (str : List Char) -> (cut : Maybe $ Fin $ S str.length) -> (b -> a) -> LazyList (Maybe $ Fin $ S str.length, a)
-  cutgo atStart r cs cut g = do
-    let (ds ** f) = precDrop cs $ fromMaybe FZ cut
-    let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
-        convIdx $ Just i = Just $ f i
-        convIdx Nothing  = cut $> f FZ
-    filterNothings $ bimap convIdx g <$> go atStart r ds
-
   go atStart (Map f r)      cs      = map @{Compose} f $ go atStart r cs
   go atStart (Seq [])       cs      = pure (Nothing, [])
-  go atStart (Seq $ r::rs)  cs      = filterNothings $ go atStart r cs >>= \(idx, x) => cutgo (atStart && hasntMove idx) (Seq rs) cs idx (x::)
+  go atStart (Seq $ r::rs)  cs      = filterNothings $ go atStart r cs >>= \(idx, x) => do
+                                        let (ds ** f) = precDrop cs $ fromMaybe FZ idx
+                                        let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
+                                            convIdx $ Just i = Just $ f i
+                                            convIdx Nothing  = idx $> f FZ
+                                        filterNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
   go atStart (Sel rs)       cs      = filterNothings $ lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
   go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
   go atStart rr@(Rep1 r)    cs      = filterNothings $ do
