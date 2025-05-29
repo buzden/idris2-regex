@@ -217,6 +217,43 @@ export %inline
 char : Char -> Regex Char
 char = sym . (==)
 
+export %inline
+anyChar : Regex Char
+anyChar = sym $ const True
+
+export %inline
+anyOf : List Char -> Regex Char
+anyOf cs = sym (`elem` cs)
+
+export %inline
+noneOf : List Char -> Regex Char
+noneOf cs = sym (not . (`elem` cs))
+
+export %inline
+between : Char -> Char -> Regex Char
+between l r = sym $ \k => l <= k && k <= r
+
+public export
+data PosixCharClass
+  = Alpha | Digit | XDigit | Alnum | Upper | Lower | Word | NonWord
+  | Cntrl | Space | Blank | Graph | Ascii | Punct
+
+posix : PosixCharClass -> Regex Char
+posix Alpha   = sym isAlpha
+posix Digit   = sym isDigit
+posix XDigit  = sym isHexDigit
+posix Alnum   = sym isAlphaNum
+posix Upper   = sym isUpper
+posix Lower   = sym isLower
+posix Word    = sym $ \c => isAlphaNum c || c == '_'
+posix NonWord = sym $ \c => not $ isAlphaNum c || c == '_'
+posix Cntrl   = sym isControl
+posix Space   = sym isSpace
+posix Blank   = anyOf [' ', '\t']
+posix Graph   = (between `on` chr) 0x21 0x7E
+posix Ascii   = (between `on` chr) 0x00 0x7F
+posix Punct   = sym $ \c => let k = ord c in (0x21 <= k && k <= 0x7E) && not (isSpace c) && not (isAlphaNum c)
+
 ||| Matches the start of the line/text
 export
 sol : Regex ()
