@@ -5,6 +5,7 @@ import Data.List
 import public Data.List.Quantifiers
 import public Data.List.Lazy
 import public Data.List1
+import Data.SnocList
 import public Data.Vect
 
 import public Syntax.IHateParens.List
@@ -28,6 +29,8 @@ data Regex : Type -> Type where
 
   Bound     : (start : Bool) -> Regex ()
   Sym       : (Char -> Bool) -> Regex Char
+
+%name Regex r, rx
 
 public export
 Functor Regex where
@@ -114,6 +117,56 @@ rawMatch = go True where
   go _       (Sym _)        []      = empty
   go _       (Sym f)        (c::cs) = whenT (f c) (Just 1, c)
 
+export
+matchWhole : Regex a -> String -> Maybe a
+matchWhole r str = do
+  (idx, x) <- head' $ rawMatch r $ unpack str
+  guard (fromMaybe FZ idx /= last) $> x
+
+lazySplits : List a -> LazyList (SnocList a, List a)
+lazySplits []          = pure ([<], [])
+lazySplits xxs@(x::xs) = ([<], xxs) :: (mapFst (:< x) <$> lazySplits xs)
+
+export
+rawMatchIn : Regex a -> List Char -> LazyList (List Char, List Char, a, List Char)
+rawMatchIn r cs = lazySplits cs >>= \(pre, cs) => rawMatch r cs <&> \(idx, x) =>
+  let (mid, post) = splitAt (finToNat $ fromMaybe FZ idx) cs in (asList pre, mid, x, post)
+
+export
+rawMatchAll : Regex a -> List Char -> LazyList (List (List Char, List Char, a), List Char)
+rawMatchAll r cs = case rawMatchIn r cs of
+  [] => pure ([], cs)
+  xs => xs >>= \(pre, ms, mx, post) => if null pre then pure ([(pre, ms, mx)], post) else
+    rawMatchAll r (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::)
+
+public export
+record OneMatchInside a where
+  constructor MkOneMatchInside
+  unmatchedPre  : String
+  matchedStr    : String
+  matchedVal    : a
+  unmatchedPost : String
+
+export
+matchInside : Regex a -> String -> Maybe $ OneMatchInside a
+matchInside r str = head' (rawMatchIn r $ unpack str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
+
+public export
+data AllMatchedInside : Type -> Type where
+  Stop  : (post : String) -> AllMatchedInside a
+  Match : (pre : String) -> (matched : String) -> a -> (cont : AllMatchedInside a) -> AllMatchedInside a
+
+public export
+matchedCnt : AllMatchedInside a -> Nat
+matchedCnt $ Stop {}         = Z
+matchedCnt $ Match {cont, _} = S $ matchedCnt cont
+
+export
+matchAll : Regex a -> String -> AllMatchedInside a
+matchAll r str = maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll r $ unpack str where
+  conv : List (List Char, List Char, a) -> (end : List Char) -> AllMatchedInside a
+  conv stmids end = foldl (\ami, (pre, ms, mx) => Match (pack pre) (pack ms) mx ami) (Stop $ pack end) stmids
+
 ------------------------------
 --- Additional combinators ---
 ------------------------------
@@ -177,6 +230,10 @@ eol = Bound False
 export %inline
 withMatch : Regex a -> Regex (String, a)
 withMatch = map (mapFst pack) . WithMatch
+
+export %inline
+matchedOf : Regex a -> Regex String
+matchedOf = map fst . withMatch
 
 export
 string : String -> Regex String
