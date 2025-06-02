@@ -49,12 +49,6 @@ Alternative Regex where
   empty = Sel [] <&> \case _ impossible
   x <|> y = Sel [x, y] <&> \case Here x => x; There (Here x) => x
 
--- TODO to be removed as soon as it's merged to the upstream
-export
-All (Show . p) xs => Show (Any p xs) where
-  showPrec d @{s::ss} (Here x)  = showCon d "Here"  $ showArg x
-  showPrec d @{s::ss} (There x) = showCon d "There" $ showArg x
-
 export
 [LowLevel] Show (Regex a) where
   showPrec d $ Map f r     = showCon d "Map" $ " <fun>" ++ showArg r
@@ -76,10 +70,6 @@ precDrop (x::xs) (FS i) = let (ys ** f) = precDrop xs i in (ys ** FS . f)
 lazyAllAnies : All p xs -> LazyList (Any p xs)
 lazyAllAnies [] = []
 lazyAllAnies (x::xs) = Here x :: map There (lazyAllAnies xs)
-
-pushOut : Functor p => Any (p . q) xs -> p $ Any q xs
-pushOut @{fp} (Here v)  = map @{fp} Here v
-pushOut @{fp} (There n) = map @{fp} There $ pushOut n
 
 hasntMove : Maybe (Fin $ S n) -> Bool
 hasntMove Nothing       = True
