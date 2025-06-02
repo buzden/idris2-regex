@@ -10,6 +10,8 @@ import public Data.Vect
 
 import public Syntax.IHateParens.List
 
+import public Text.Regex.Interface
+
 %default total
 
 ----------------------------------------
@@ -30,7 +32,7 @@ data Regex : Type -> Type where
   Bound     : (start : Bool) -> Regex ()
   Sym       : (Char -> Bool) -> Regex Char
 
-%name Regex r, rx
+%name Regex.Regex r, rx
 
 public export
 Functor Regex where
@@ -45,12 +47,12 @@ Applicative Regex where
 
 -- TODO to implement `Sel` fusion (looking inside `Map` and `WithMatch` too)
 public export
-Alternative Regex where
+Alternative Regex.Regex where
   empty = Sel [] <&> \case _ impossible
   x <|> y = Sel [x, y] <&> \case Here x => x; There (Here x) => x
 
 export
-[LowLevel] Show (Regex a) where
+[LowLevel] Show (Regex.Regex a) where
   showPrec d $ Map f r     = showCon d "Map" $ " <fun>" ++ showArg r
   showPrec d $ Seq rs      = showCon d "Seq" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
   showPrec d $ Sel rs      = showCon d "Sel" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
@@ -107,12 +109,6 @@ rawMatch = go True where
   go _       (Sym _)        []      = empty
   go _       (Sym f)        (c::cs) = whenT (f c) (Just 1, c)
 
-export
-matchWhole : Regex a -> String -> Maybe a
-matchWhole r str = do
-  (idx, x) <- head' $ rawMatch r $ unpack str
-  guard (fromMaybe FZ idx /= last) $> x
-
 lazySplits : List a -> LazyList (SnocList a, List a)
 lazySplits []          = pure ([<], [])
 lazySplits xxs@(x::xs) = ([<], xxs) :: (mapFst (:< x) <$> lazySplits xs)
@@ -129,149 +125,24 @@ rawMatchAll r cs = case rawMatchIn r cs of
   xs => xs >>= \(pre, ms, mx, post) => if null pre then pure ([(pre, ms, mx)], post) else
     rawMatchAll r (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::)
 
-public export
-record OneMatchInside a where
-  constructor MkOneMatchInside
-  unmatchedPre  : String
-  matchedStr    : String
-  matchedVal    : a
-  unmatchedPost : String
+---------------------------------------
+--- Implementation of the interface ---
+---------------------------------------
 
 export
-matchInside : Regex a -> String -> Maybe $ OneMatchInside a
-matchInside r str = head' (rawMatchIn r $ unpack str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
-
-public export
-data AllMatchedInside : Type -> Type where
-  Stop  : (post : String) -> AllMatchedInside a
-  Match : (pre : String) -> (matched : String) -> a -> (cont : AllMatchedInside a) -> AllMatchedInside a
-
-public export
-matchedCnt : AllMatchedInside a -> Nat
-matchedCnt $ Stop {}         = Z
-matchedCnt $ Match {cont, _} = S $ matchedCnt cont
+Regex Regex where
+  rep1 = Rep1
+  sym = Sym
+  sol = Bound True
+  eol = Bound False
+  withMatch = map (mapFst pack) . WithMatch
 
 export
-matchAll : Regex a -> String -> AllMatchedInside a
-matchAll r str = maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll r $ unpack str where
-  conv : List (List Char, List Char, a) -> (end : List Char) -> AllMatchedInside a
-  conv stmids end = foldl (\ami, (pre, ms, mx) => Match (pack pre) (pack ms) mx ami) (Stop $ pack end) stmids
-
-------------------------------
---- Additional combinators ---
-------------------------------
-
-export
-rep : Regex a -> Regex $ List a
-rep r = toList <$> Rep1 r <|> pure []
-
-export %inline
-rep1 : Regex a -> Regex $ List1 a
-rep1 = Rep1
-
-export
-repeatN : (n : Nat) -> Regex a -> Regex $ Vect n a
-repeatN Z     _ = pure []
-repeatN (S Z) r = r <&> pure
-repeatN (S n) r = [| r :: repeatN n r |]
-
-export
-repeatAtLeast : (n : Nat) -> Regex a -> Regex $ List a
-repeatAtLeast n r = [| map toList (repeatN n r) ++ rep r |]
-
-export
-repeatAtMost : (m : Nat) -> Regex a -> Regex $ List a
-repeatAtMost Z     _ = pure []
-repeatAtMost (S m) r = [| r :: repeatAtMost m r |] <|> pure []
-
-export
-repeatNM : (n, m : Nat) -> (0 _ : n `LTE` m) => Regex a -> Regex $ List a
-repeatNM n m r = [| map toList (repeatN n r) ++ repeatAtMost (m `minus` n) r |]
-
-------------------------
---- Particular cases ---
-------------------------
-
-||| Always matches without consuming any symbol.
-export %inline
-omega : Regex ()
-omega = pure ()
-
-||| Matches a symbol satisfying the given predicate, and returns the matched char, or fails.
-export %inline
-sym : (Char -> Bool) -> Regex Char
-sym = Sym
-
-||| Matches the given symbol and returns it, or fails.
-export %inline
-char : Char -> Regex Char
-char = sym . (==)
-
-export %inline
-anyChar : Regex Char
-anyChar = sym $ const True
-
-export %inline
-anyOf : List Char -> Regex Char
-anyOf cs = sym (`elem` cs)
-
-export %inline
-noneOf : List Char -> Regex Char
-noneOf cs = sym (not . (`elem` cs))
-
-export %inline
-between : Char -> Char -> Regex Char
-between l r = sym $ \k => l <= k && k <= r
-
-public export
-data PosixCharClass
-  = Alpha | Digit | XDigit | Alnum | Upper | Lower | Word | NonWord
-  | Cntrl | Space | Blank | Graph | Ascii | Punct
-
-posix : PosixCharClass -> Regex Char
-posix Alpha   = sym isAlpha
-posix Digit   = sym isDigit
-posix XDigit  = sym isHexDigit
-posix Alnum   = sym isAlphaNum
-posix Upper   = sym isUpper
-posix Lower   = sym isLower
-posix Word    = sym $ \c => isAlphaNum c || c == '_'
-posix NonWord = sym $ \c => not $ isAlphaNum c || c == '_'
-posix Cntrl   = sym isControl
-posix Space   = sym isSpace
-posix Blank   = anyOf [' ', '\t']
-posix Graph   = (between `on` chr) 0x21 0x7E
-posix Ascii   = (between `on` chr) 0x00 0x7F
-posix Punct   = sym $ \c => let k = ord c in (0x21 <= k && k <= 0x7E) && not (isSpace c) && not (isAlphaNum c)
-
-||| Matches the start of the line/text
-export
-sol : Regex ()
-sol = Bound True
-
-||| Matches the end of the line/text
-export
-eol : Regex ()
-eol = Bound False
-
-export %inline
-withMatch : Regex a -> Regex (String, a)
-withMatch = map (mapFst pack) . WithMatch
-
-export %inline
-matchedOf : Regex a -> Regex String
-matchedOf = map fst . withMatch
-
-export
-string : String -> Regex String
-string = map pack . sequence . map char . unpack
-
-||| Matches all of given sub-regexes, sequentially.
-export %inline
-all : All Regex tys -> Regex $ HList tys
-all = Seq . delay
-
-||| Matches is there exists at least one sub-regex that matches.
-export %inline
-exists : All Regex tys -> Regex $ Any Prelude.id tys
-exists = Sel . delay
+RegexMatcher Regex where
+  matchWhole r str = do
+    (idx, x) <- head' $ rawMatch r $ unpack str
+    guard (fromMaybe FZ idx /= last) $> x
+  matchInside r str = head' (rawMatchIn r $ unpack str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
+  matchAll r str = maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll r $ unpack str where
+    conv : List (List Char, List Char, a) -> (end : List Char) -> AllMatchedInside a
+    conv stmids end = foldl (\ami, (pre, ms, mx) => Match (pack pre) (pack ms) mx ami) (Stop $ pack end) stmids
