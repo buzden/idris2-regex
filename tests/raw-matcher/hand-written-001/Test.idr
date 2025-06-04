@@ -1,6 +1,6 @@
 module Test
 
-import Data.Regex
+import Text.Regex.Naive
 
 import Language.Reflection
 

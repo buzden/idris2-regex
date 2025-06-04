@@ -9,9 +9,9 @@ license = "Apache-2.0"
 sourcedir = "src"
 builddir = ".build"
 
-modules = Data.Regex
-        , Text.Matcher
+modules = Text.Matcher
         , Text.Regex.Interface
+        , Text.Regex.Naive
 
 depends = best-alternative
         , i-hate-parens

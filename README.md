@@ -1,7 +1,7 @@
 <!-- idris
 module README
 
-import Data.Regex
+import Text.Regex.Naive
 -->
 
 # Regex for Idris2

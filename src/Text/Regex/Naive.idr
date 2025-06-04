@@ -1,4 +1,4 @@
-module Data.Regex
+module Text.Regex.Naive
 
 import public Data.Alternative
 import Data.List
@@ -33,7 +33,7 @@ data Regex : Type -> Type where
   Bound     : (start : Bool) -> Regex ()
   Sym       : (Char -> Bool) -> Regex Char
 
-%name Regex.Regex r, rx
+%name Naive.Regex r, rx
 
 public export
 Functor Regex where
@@ -48,12 +48,12 @@ Applicative Regex where
 
 -- TODO to implement `Sel` fusion (looking inside `Map` and `WithMatch` too)
 public export
-Alternative Regex.Regex where
+Alternative Naive.Regex where
   empty = Sel [] <&> \case _ impossible
   x <|> y = Sel [x, y] <&> \case Here x => x; There (Here x) => x
 
 export
-[LowLevel] Show (Regex.Regex a) where
+[LowLevel] Show (Naive.Regex a) where
   showPrec d $ Map f r     = showCon d "Map" $ " <fun>" ++ showArg r
   showPrec d $ Seq rs      = showCon d "Seq" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
   showPrec d $ Sel rs      = showCon d "Sel" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
