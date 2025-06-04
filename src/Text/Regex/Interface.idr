@@ -117,35 +117,3 @@ posix Blank   = anyOf [' ', '\t']
 posix Graph   = (between `on` chr) 0x21 0x7E
 posix Ascii   = (between `on` chr) 0x00 0x7F
 posix Punct   = sym $ \c => let k = ord c in (0x21 <= k && k <= 0x7E) && not (isSpace c) && not (isAlphaNum c)
-
-----------------------
---- Regex matching ---
-----------------------
-
-namespace Match
-
-  public export
-  record OneMatchInside a where
-    constructor MkOneMatchInside
-    unmatchedPre  : String
-    matchedStr    : String
-    matchedVal    : a
-    unmatchedPost : String
-
-  public export
-  data AllMatchedInside : Type -> Type where
-    Stop  : (post : String) -> AllMatchedInside a
-    Match : (pre : String) -> (matched : String) -> a -> (cont : AllMatchedInside a) -> AllMatchedInside a
-
-  public export
-  matchedCnt : AllMatchedInside a -> Nat
-  matchedCnt $ Stop {}         = Z
-  matchedCnt $ Match {cont, _} = S $ matchedCnt cont
-
-public export
-interface RegexMatcher rx where
-  matchWhole  : rx a -> String -> Maybe a
-  matchInside : rx a -> String -> Maybe $ OneMatchInside a
-  matchAll    : rx a -> String -> AllMatchedInside a
-
-

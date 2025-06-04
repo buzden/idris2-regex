@@ -11,6 +11,7 @@ import public Data.Vect
 import public Syntax.IHateParens.List
 
 import public Text.Regex.Interface
+import public Text.Matcher
 
 %default total
 
@@ -138,7 +139,7 @@ Regex Regex where
   withMatch = map (mapFst pack) . WithMatch
 
 export
-RegexMatcher Regex where
+TextMatcher Regex where
   matchWhole r str = do
     (idx, x) <- head' $ rawMatch r $ unpack str
     guard (fromMaybe FZ idx /= last) $> x
