@@ -12,6 +12,7 @@ builddir = ".build"
 modules = Text.Matcher
         , Text.Regex.Interface
         , Text.Regex.Naive
+        , Text.Regex.Parser
 
 depends = best-alternative
         , i-hate-parens
