@@ -13,13 +13,6 @@ import public Data.Vect
 
 public export
 interface Alternative rx => Regex rx where
-  withMatch : rx a -> rx (String, a)
-
-  rep1 : rx a -> rx $ List1 a
-  rep1 r = [| r ::: rep r |]
-  rep : rx a -> rx $ List a
-  rep r = toList <$> rep1 r <|> pure []
-
   ||| Matches a symbol satisfying the given predicate, and returns the matched char, or fails.
   sym : (Char -> Bool) -> rx Char
   ||| Matches the given symbol and returns it, or fails.
@@ -34,17 +27,20 @@ interface Alternative rx => Regex rx where
   string : String -> rx String
   string = map pack . sequence . map char . unpack
 
-||| Matches all of given sub-regexes, sequentially.
-public export %inline
-all : Regex rx => All rx tys -> rx $ HList tys
-all = pushOut
+  withMatch : rx a -> rx (String, a)
 
--- TODO to reimplement with upstream function, when it's added
-||| Matches is there exists at least one sub-regex that matches.
-export
-exists : Regex rx => All rx tys -> rx $ Any Prelude.id tys
-exists []      = empty
-exists (r::rs) = Here <$> r <|> There <$> exists rs
+  ||| Matches all of given sub-regexes, sequentially.
+  all : All rx tys -> rx $ HList tys
+  all = pushOut
+
+  ||| Matches is there exists at least one sub-regex that matches.
+  exists : All rx tys -> rx $ Any Prelude.id tys
+  exists = altAll
+
+  rep1 : rx a -> rx $ List1 a
+  rep1 r = [| r ::: rep r |]
+  rep : rx a -> rx $ List a
+  rep r = toList <$> rep1 r <|> pure []
 
 --- Special general cases ---
 

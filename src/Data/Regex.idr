@@ -23,8 +23,8 @@ export
 data Regex : Type -> Type where
   Map       : (a -> b) -> Regex a -> Regex b
 
-  Seq       : Lazy (All Regex tys) -> Regex $ All Prelude.id tys -- empty list always matches
-  Sel       : Lazy (All Regex tys) -> Regex $ Any Prelude.id tys -- empty list never matches
+  Seq       : All Regex tys -> Regex $ All Prelude.id tys -- empty list always matches
+  Sel       : All Regex tys -> Regex $ Any Prelude.id tys -- empty list never matches
 
   WithMatch : Regex a -> Regex (List Char, a)
 
@@ -132,11 +132,13 @@ rawMatchAll r cs = case rawMatchIn r cs of
 
 export
 Regex Regex where
-  rep1 = Rep1
   sym = Sym
   sol = Bound True
   eol = Bound False
   withMatch = map (mapFst pack) . WithMatch
+  all = Seq
+  exists = Sel
+  rep1 = Rep1
 
 export
 TextMatcher Regex where
