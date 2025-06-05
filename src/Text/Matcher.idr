@@ -52,4 +52,10 @@ interface TextMatcher tm where
     _                            => Nothing
   matchAll m str = do
     let Just $ MkOneMatchInside pre match val post = matchInside m str | Nothing => Stop str
-    Match pre match val $ matchAll m $ assert_smaller str post
+    if length post < length str
+      then Match pre match val $ matchAll m $ assert_smaller str post
+      else case strUncons str of
+             Nothing => Match pre match val $ Stop post
+             Just (k, str') => case matchAll m $ assert_smaller str str' of
+               Stop post' => Match pre match val $ Stop $ strCons k post'
+               Match pre' match' val' cont' => Match pre match val $ Match (strCons k pre') match' val' cont'
