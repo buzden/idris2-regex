@@ -34,7 +34,18 @@ data RxLex
   | RepNM Nat Nat -- {n,m}
   | Rep_M Nat -- {,m}
 
-lex : List Char -> Either BadRegex $ List RxLex
+lex : (top : Bool) -> (curr : SnocList RxLex) -> (notYet : SnocList Char) -> List Char -> Either BadRegex $ List RxLex
+lex True  curr [<]       [] = pure $ cast curr
+lex False curr [<]       [] = Left $ RegexIsBad ?unexpected_end_pos ?unexpected_end_msg
+lex top   curr [<k]      [] = pure $ cast $ curr :< C k
+lex top   curr ny@(_:<_) [] = pure $ cast $ (curr :<) $ S $ pack $ cast ny
+lex top   curr ny (x :: xs) = ?lex_rhs_1
+lex top   curr ny (x :: xs) = ?lex_rhs_2
+lex top   curr ny (x :: xs) = ?lex_rhs_3
+lex top   curr ny (x :: xs) = ?lex_rhs_4
+lex top   curr ny (x :: xs) = ?lex_rhs_5
+lex top   curr ny (x :: xs) = ?lex_rhs_6
+lex top   curr ny (x :: xs) = ?lex_rhs_7
 
 parseRegex' : Regex rx => List Char -> Either BadRegex $ Exists rx
 
