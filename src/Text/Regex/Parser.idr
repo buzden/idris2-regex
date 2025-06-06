@@ -13,6 +13,29 @@ public export
 data BadRegex : Type where
   RegexIsBad : (index : Nat) -> (reason : String) -> BadRegex
 
+data Chars
+  = One Char
+  | Class CharClass
+  | Range Char Char
+
+data RxLex
+  = C Char
+  | S String
+  | Cs Bool (List Chars) -- [...] and [^...], bool `False` for `[^...]`
+  | Group Bool (List RxLex) -- (...) and (?:...), bool `True` for matching group
+  | SOL -- ^
+  | EOL -- $
+  | Alt (List RxLex) (List RxLex) -- |
+  | AnyC -- .
+  | Rep0 -- *
+  | Rep1 -- +
+  | Opt -- ?
+  | RepN_ Nat -- {n,}
+  | RepNM Nat Nat -- {n,m}
+  | Rep_M Nat -- {,m}
+
+lex : List Char -> Either BadRegex $ List RxLex
+
 parseRegex' : Regex rx => List Char -> Either BadRegex $ Exists rx
 
 export %inline
