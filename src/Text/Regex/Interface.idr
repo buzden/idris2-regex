@@ -93,23 +93,25 @@ between : Regex rx => Char -> Char -> rx Char
 between l r = sym $ \k => l <= k && k <= r
 
 public export
-data PosixCharClass
+data CharClass
   = Alpha | Digit | XDigit | Alnum | Upper | Lower | Word | NonWord
-  | Cntrl | Space | Blank | Graph | Ascii | Punct
+  | Cntrl | Space | NonSpace | Blank | Graph | Print | Ascii | Punct
 
-export
-posix : Regex rx => PosixCharClass -> rx Char
-posix Alpha   = sym isAlpha
-posix Digit   = sym isDigit
-posix XDigit  = sym isHexDigit
-posix Alnum   = sym isAlphaNum
-posix Upper   = sym isUpper
-posix Lower   = sym isLower
-posix Word    = sym $ \c => isAlphaNum c || c == '_'
-posix NonWord = sym $ \c => not $ isAlphaNum c || c == '_'
-posix Cntrl   = sym isControl
-posix Space   = sym isSpace
-posix Blank   = anyOf [' ', '\t']
-posix Graph   = (between `on` chr) 0x21 0x7E
-posix Ascii   = (between `on` chr) 0x00 0x7F
-posix Punct   = sym $ \c => let k = ord c in (0x21 <= k && k <= 0x7E) && not (isSpace c) && not (isAlphaNum c)
+export %tcinline
+charClass : CharClass -> Char -> Bool
+charClass Alpha    = isAlpha
+charClass Digit    = isDigit
+charClass XDigit   = isHexDigit
+charClass Alnum    = isAlphaNum
+charClass Upper    = isUpper
+charClass Lower    = isLower
+charClass Word     = \c => isAlphaNum c || c == '_'
+charClass NonWord  = \c => not $ isAlphaNum c || c == '_'
+charClass Cntrl    = isControl
+charClass Space    = isSpace
+charClass NonSpace = not . isSpace
+charClass Blank    = \c => c == ' ' || c == '\t'
+charClass Graph    = \c => chr 0x21 <= c && c <= chr 0x7E
+charClass Print    = \c => c == ' ' || charClass Graph c
+charClass Ascii    = \c => chr 0x00 <= c && c <= chr 0x7F
+charClass Punct    = \c => charClass Graph c && not (isSpace c) && not (isAlphaNum c)
