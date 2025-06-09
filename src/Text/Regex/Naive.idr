@@ -135,6 +135,7 @@ Regex Regex where
   sym = Sym
   sol = Bound True
   eol = Bound False
+  wordBoundary = ?wb_impl
   withMatch = map (mapFst pack) . WithMatch
   all = Seq
   exists = Sel

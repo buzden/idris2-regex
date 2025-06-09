@@ -20,12 +20,12 @@ data Chars
 
 data RxLex
   = C Char
-  | S String
+  | WB Bool Bool -- word boundary, left, right, both or non-boundary
   | Cs Bool (List Chars) -- [...] and [^...], bool `False` for `[^...]`
   | Group Bool (List RxLex) -- (...) and (?:...), bool `True` for matching group
   | SOL -- ^
   | EOL -- $
-  | Alt (List RxLex) (List RxLex) -- |
+  | Alt -- |
   | AnyC -- .
   | Rep0 -- *
   | Rep1 -- +
@@ -34,18 +34,56 @@ data RxLex
   | RepNM Nat Nat -- {n,m}
   | Rep_M Nat -- {,m}
 
-lex : (top : Bool) -> (curr : SnocList RxLex) -> (notYet : SnocList Char) -> List Char -> Either BadRegex $ List RxLex
-lex True  curr [<]       [] = pure $ cast curr
-lex False curr [<]       [] = Left $ RegexIsBad ?unexpected_end_pos ?unexpected_end_msg
-lex top   curr [<k]      [] = pure $ cast $ curr :< C k
-lex top   curr ny@(_:<_) [] = pure $ cast $ (curr :<) $ S $ pack $ cast ny
-lex top   curr ny (x :: xs) = ?lex_rhs_1
-lex top   curr ny (x :: xs) = ?lex_rhs_2
-lex top   curr ny (x :: xs) = ?lex_rhs_3
-lex top   curr ny (x :: xs) = ?lex_rhs_4
-lex top   curr ny (x :: xs) = ?lex_rhs_5
-lex top   curr ny (x :: xs) = ?lex_rhs_6
-lex top   curr ny (x :: xs) = ?lex_rhs_7
+-- Alpha | Digit | XDigit | Alnum | Upper | Lower | Word
+-- Cntrl | Space | Blank | Graph | Print | Ascii | Punct
+
+data ParsingContext : Type where
+  E : SnocList RxLex -> ParsingContext
+  G : ParsingContext -> (matching : Bool) -> (openingPos : Nat) -> SnocList RxLex -> ParsingContext
+
+push : ParsingContext -> RxLex -> ParsingContext
+push (E ls)          l = E $ ls :< l
+push (G sub m op ls) l = G sub m op $ ls :< l
+
+lex : List Char -> Either BadRegex $ List RxLex
+lex orig = go (E [<]) orig where
+  go : ParsingContext -> List Char -> Either BadRegex $ List RxLex
+  go (E curr)     [] = pure $ cast curr
+  go (G _ _ op _) [] = Left $ RegexIsBad op "unmatched opening parenthesis"
+  go ctx $ '.' :: xs = go (push ctx AnyC) xs
+  go ctx $ '^' :: xs = go (push ctx SOL) xs
+  go ctx $ '$' :: xs = go (push ctx EOL) xs
+  go ctx $ '*' :: xs = go (push ctx Rep0) xs
+  go ctx $ '+' :: xs = go (push ctx Rep1) xs
+  go ctx $ '?' :: xs = go (push ctx Opt) xs
+  go ctx $ '|' :: xs = go (push ctx Alt) xs
+  go ctx xxs@('('::'?'::':' :: xs) = go (G ctx True  (length orig `minus` length xxs) [<]) xs
+  go ctx xxs@('(' :: xs          ) = go (G ctx False (length orig `minus` length xxs) [<]) xs
+  go (E {}) xxs@(')' :: xs) = Left $ RegexIsBad (length orig `minus` length xxs) "unmatched closing parenthesis"
+  go (G ctx mtch op ls) $ ')' :: xs = go (push ctx $ Group mtch $ cast ls) xs
+  go ctx $ '['::'^' :: xs = ?lex_rhs_2
+  go ctx $ '[' :: xs = ?lex_rhs_3
+  go ctx $ '{' :: xs = ?lex_rhs_8
+  go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True [Class Word]) xs
+  go ctx $ '\\'::'W' :: xs = go (push ctx $ Cs False [Class Word]) xs
+  go ctx $ '\\'::'s' :: xs = go (push ctx $ Cs True [Class Space]) xs
+  go ctx $ '\\'::'S' :: xs = go (push ctx $ Cs False [Class Space]) xs
+  go ctx $ '\\'::'d' :: xs = go (push ctx $ Cs True [Class Digit]) xs
+  go ctx $ '\\'::'D' :: xs = go (push ctx $ Cs False [Class Digit]) xs
+  go ctx $ '\\'::'b' :: xs = go (push ctx $ WB True True) xs
+  go ctx $ '\\'::'B' :: xs = go (push ctx $ WB False False) xs
+  go ctx $ '\\'::'<' :: xs = go (push ctx $ WB True False) xs
+  go ctx $ '\\'::'>' :: xs = go (push ctx $ WB False True) xs
+  go ctx $ '\\'::'n'  :: xs = go (push ctx $ C '\n') xs
+  go ctx $ '\\'::'r'  :: xs = go (push ctx $ C '\r') xs
+  go ctx $ '\\'::'t'  :: xs = go (push ctx $ C '\t') xs
+  go ctx $ '\\'::'b'  :: xs = go (push ctx $ C '\b') xs
+  go ctx $ '\\'::'f'  :: xs = go (push ctx $ C '\f') xs
+  go ctx $ '\\'::'v'  :: xs = go (push ctx $ C '\v') xs
+  go ctx $ '\\'::'0'  :: xs = go (push ctx $ C '\0') xs
+  go ctx $ '\\'::'\\' :: xs = go (push ctx $ C '\\') xs
+  go ctx $ '\\'::xxs@(x::_) = Left $ RegexIsBad (length orig `minus` length xxs) "unknown quote character '\\\{show x}'"
+  go ctx $ x :: xs = go (push ctx $ C x) xs
 
 parseRegex' : Regex rx => List Char -> Either BadRegex $ Exists rx
 

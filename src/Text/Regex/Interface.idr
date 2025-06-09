@@ -24,6 +24,12 @@ interface Alternative rx => Regex rx where
   ||| Matches the end of the line/text
   eol : rx ()
 
+  ||| Zero-width boundary between a word-class char and a non-word class char or an edge.
+  |||
+  ||| For left or right boundary, set corresponding bool parameter to `True`,
+  ||| for any set both to `True`, for non-boundary set both to `False`.
+  wordBoundary : (left : Bool) -> (right : Bool) -> rx ()
+
   string : String -> rx String
   string = map pack . sequence . map char . unpack
 
@@ -94,8 +100,8 @@ between l r = sym $ \k => l <= k && k <= r
 
 public export
 data CharClass
-  = Alpha | Digit | XDigit | Alnum | Upper | Lower | Word | NonWord
-  | Cntrl | Space | NonSpace | Blank | Graph | Print | Ascii | Punct
+  = Alpha | Digit | XDigit | Alnum | Upper | Lower | Word
+  | Cntrl | Space | Blank | Graph | Print | Ascii | Punct
 
 export %tcinline
 charClass : CharClass -> Char -> Bool
@@ -106,10 +112,8 @@ charClass Alnum    = isAlphaNum
 charClass Upper    = isUpper
 charClass Lower    = isLower
 charClass Word     = \c => isAlphaNum c || c == '_'
-charClass NonWord  = \c => not $ isAlphaNum c || c == '_'
 charClass Cntrl    = isControl
 charClass Space    = isSpace
-charClass NonSpace = not . isSpace
 charClass Blank    = \c => c == ' ' || c == '\t'
 charClass Graph    = \c => chr 0x21 <= c && c <= chr 0x7E
 charClass Print    = \c => c == ' ' || charClass Graph c
