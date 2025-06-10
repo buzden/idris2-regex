@@ -19,7 +19,7 @@ data Chars
   | Range Char Char
 
 data RxLex
-  = C Char
+  = C (SnocList Char)
   | WB Bool Bool -- word boundary, left, right, both or non-boundary
   | Cs Bool (List Chars) -- [...] and [^...], bool `False` for `[^...]`
   | Group Bool (List RxLex) -- (...) and (?:...), bool `True` for matching group
@@ -40,6 +40,8 @@ data ParsingContext : Type where
   G : ParsingContext -> (matching : Bool) -> (openingPos : Nat) -> SnocList RxLex -> ParsingContext
 
 push : ParsingContext -> RxLex -> ParsingContext
+push (E $ ls :< C l)          (C r) = E $ ls :< C (l ++ r)
+push (G sub m op $ ls :< C l) (C r) = G sub m op $ ls :< C (l ++ r)
 push (E ls)          l = E $ ls :< l
 push (G sub m op ls) l = G sub m op $ ls :< l
 
@@ -119,15 +121,15 @@ lex orig = go (E [<]) orig where
   go ctx $ '\\'::'B' :: xs = go (push ctx $ WB False False) xs
   go ctx $ '\\'::'<' :: xs = go (push ctx $ WB True  False) xs
   go ctx $ '\\'::'>' :: xs = go (push ctx $ WB False True) xs
-  go ctx $ '\\'::'n'  :: xs = go (push ctx $ C '\n') xs
-  go ctx $ '\\'::'r'  :: xs = go (push ctx $ C '\r') xs
-  go ctx $ '\\'::'t'  :: xs = go (push ctx $ C '\t') xs
-  go ctx $ '\\'::'f'  :: xs = go (push ctx $ C '\f') xs
-  go ctx $ '\\'::'v'  :: xs = go (push ctx $ C '\v') xs
-  go ctx $ '\\'::'0'  :: xs = go (push ctx $ C '\0') xs
-  go ctx $ '\\'::'\\' :: xs = go (push ctx $ C '\\') xs
+  go ctx $ '\\'::'n'  :: xs = go (push ctx $ C [<'\n']) xs
+  go ctx $ '\\'::'r'  :: xs = go (push ctx $ C [<'\r']) xs
+  go ctx $ '\\'::'t'  :: xs = go (push ctx $ C [<'\t']) xs
+  go ctx $ '\\'::'f'  :: xs = go (push ctx $ C [<'\f']) xs
+  go ctx $ '\\'::'v'  :: xs = go (push ctx $ C [<'\v']) xs
+  go ctx $ '\\'::'0'  :: xs = go (push ctx $ C [<'\0']) xs
+  go ctx $ '\\'::'\\' :: xs = go (push ctx $ C [<'\\']) xs
   go ctx $ '\\'::xxs@(x::_) = Left $ RegexIsBad (length orig `minus` length xxs) "unknown quote character '\\\{show x}'"
-  go ctx $ x :: xs = go (push ctx $ C x) xs
+  go ctx $ x :: xs = go (push ctx $ C [<x]) xs
 
 parseRegex' : Regex rx => List Char -> Either BadRegex $ Exists rx
 
