@@ -15,7 +15,7 @@ data BadRegex : Type where
 
 data Chars
   = One Char
-  | Class CharClass
+  | Class Bool CharClass -- False means negation of this char class
   | Range Char Char
 
 data RxLex
@@ -35,9 +35,6 @@ data RxLex
   | RepNM Nat Nat -- {n,m}
   | Rep_M Nat -- {,m}
 
--- Alpha | Digit | XDigit | Alnum | Upper | Lower | Word
--- Cntrl | Space | Blank | Graph | Print | Ascii | Punct
-
 data ParsingContext : Type where
   E : SnocList RxLex -> ParsingContext
   G : ParsingContext -> (matching : Bool) -> (openingPos : Nat) -> SnocList RxLex -> ParsingContext
@@ -55,7 +52,33 @@ parseNat acc pos (x::xs) = do
     [] => pure acc
     _  => parseNat acc (S pos) xs
 
-parseCharsSet : List Char -> Either BadRegex (List Char, List Chars)
+parseCharsSet : (origLen : Lazy Nat) -> (start : Bool) -> SnocList Chars -> List Char -> Either BadRegex (List Char, List Chars)
+parseCharsSet origLen start curr [] = Left $ RegexIsBad origLen "unmatched opening bracket"
+parseCharsSet origLen False curr (']' :: xs) = pure (xs, cast curr)
+parseCharsSet origLen start curr lrxs@(l::'-'::r :: xs) = if l <= r
+  then parseCharsSet origLen False (curr :< Range l r) xs
+  else Left $ RegexIsBad (origLen `minus` length lrxs) "invalid range, left is greater than `right"
+parseCharsSet origLen start curr $ '\\'::'w' :: xs = parseCharsSet origLen False (curr :< Class True  Word) xs
+parseCharsSet origLen start curr $ '\\'::'W' :: xs = parseCharsSet origLen False (curr :< Class False Word) xs
+parseCharsSet origLen start curr $ '\\'::'s' :: xs = parseCharsSet origLen False (curr :< Class True  Space) xs
+parseCharsSet origLen start curr $ '\\'::'S' :: xs = parseCharsSet origLen False (curr :< Class False Space) xs
+parseCharsSet origLen start curr $ '\\'::'d' :: xs = parseCharsSet origLen False (curr :< Class True  Digit) xs
+parseCharsSet origLen start curr $ '\\'::'D' :: xs = parseCharsSet origLen False (curr :< Class False Digit) xs
+parseCharsSet origLen start curr $ '['::':'::'u'::'p'::'p'::'e'::'r'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Upper) xs
+parseCharsSet origLen start curr $ '['::':'::'l'::'o'::'w'::'e'::'r'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Lower) xs
+parseCharsSet origLen start curr $ '['::':'::'a'::'l'::'p'::'h'::'a'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Alpha) xs
+parseCharsSet origLen start curr $ '['::':'::'a'::'l'::'n'::'u'::'m'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Alnum) xs
+parseCharsSet origLen start curr $ '['::':'::'d'::'i'::'g'::'i'::'t'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Digit) xs
+parseCharsSet origLen start curr $ '['::':'::'x'::'d'::'i'::'g'::'i'::'t'::':'::']' :: xs = parseCharsSet origLen False (curr :< Class True XDigit) xs
+parseCharsSet origLen start curr $ '['::':'::'p'::'u'::'n'::'c'::'t'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Punct) xs
+parseCharsSet origLen start curr $ '['::':'::'b'::'l'::'a'::'n'::'k'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Blank) xs
+parseCharsSet origLen start curr $ '['::':'::'s'::'p'::'a'::'c'::'e'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Space) xs
+parseCharsSet origLen start curr $ '['::':'::'c'::'n'::'t'::'r'::'l'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Cntrl) xs
+parseCharsSet origLen start curr $ '['::':'::'g'::'r'::'a'::'p'::'h'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Graph) xs
+parseCharsSet origLen start curr $ '['::':'::'p'::'r'::'i'::'n'::'t'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Print) xs
+parseCharsSet origLen start curr $ '['::':'::'a'::'s'::'c'::'i'::'i'::':'::']'      :: xs = parseCharsSet origLen False (curr :< Class True Ascii) xs
+parseCharsSet origLen start curr $ '['::':'::'w'::'o'::'r'::'d'::':'::']'           :: xs = parseCharsSet origLen False (curr :< Class True Word) xs
+parseCharsSet origLen start curr (x :: xs) = parseCharsSet origLen False (curr :< One x) xs
 
 lex : List Char -> Either BadRegex $ List RxLex
 lex orig = go (E [<]) orig where
@@ -73,8 +96,8 @@ lex orig = go (E [<]) orig where
   go ctx xxs@('('           :: xs) = go (G ctx False (length orig `minus` length xxs) [<]) xs
   go (E {}) xxs@(')' :: xs) = Left $ RegexIsBad (length orig `minus` length xxs) "unmatched closing parenthesis"
   go (G ctx mtch op ls) $ ')' :: xs = go (push ctx $ Group mtch $ cast ls) xs
-  go ctx $ '['::'^' :: xs = parseCharsSet xs >>= \(rest, cs) => go (push ctx $ Cs False cs) $ assert_smaller xs rest
-  go ctx $ '['      :: xs = parseCharsSet xs >>= \(rest, cs) => go (push ctx $ Cs True  cs) $ assert_smaller xs rest
+  go ctx $ '['::'^' :: xs = parseCharsSet (length orig) True [<] xs >>= \(rest, cs) => go (push ctx $ Cs False cs) $ assert_smaller xs rest
+  go ctx $ '['      :: xs = parseCharsSet (length orig) True [<] xs >>= \(rest, cs) => go (push ctx $ Cs True  cs) $ assert_smaller xs rest
   go ctx $ '{' :: xs = do let (bnds, rest) = span (/= '}') xs
                           let '}' :: rest = rest | _ => Left $ RegexIsBad (length orig `minus` length rest) "`}` is expected"
                           let pos : Lazy Nat := length orig `minus` length xs
@@ -85,12 +108,12 @@ lex orig = go (E [<]) orig where
                             | l:::[[]] => parseNat Z pos l >>= \n => go (push ctx $ Rep_M n) $ assert_smaller xs rest
                           r <- parseNat Z (1 + pos + length l) r; l <- parseNat Z pos l
                           go (push ctx $ RepNM l r) $ assert_smaller xs rest
-  go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True  [Class Word]) xs
-  go ctx $ '\\'::'W' :: xs = go (push ctx $ Cs False [Class Word]) xs
-  go ctx $ '\\'::'s' :: xs = go (push ctx $ Cs True  [Class Space]) xs
-  go ctx $ '\\'::'S' :: xs = go (push ctx $ Cs False [Class Space]) xs
-  go ctx $ '\\'::'d' :: xs = go (push ctx $ Cs True  [Class Digit]) xs
-  go ctx $ '\\'::'D' :: xs = go (push ctx $ Cs False [Class Digit]) xs
+  go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True [Class True  Word]) xs
+  go ctx $ '\\'::'W' :: xs = go (push ctx $ Cs True [Class False Word]) xs
+  go ctx $ '\\'::'s' :: xs = go (push ctx $ Cs True [Class True  Space]) xs
+  go ctx $ '\\'::'S' :: xs = go (push ctx $ Cs True [Class False Space]) xs
+  go ctx $ '\\'::'d' :: xs = go (push ctx $ Cs True [Class True  Digit]) xs
+  go ctx $ '\\'::'D' :: xs = go (push ctx $ Cs True [Class False Digit]) xs
   go ctx $ '\\'::'b' :: xs = go (push ctx $ WB True  True) xs
   go ctx $ '\\'::'B' :: xs = go (push ctx $ WB False False) xs
   go ctx $ '\\'::'<' :: xs = go (push ctx $ WB True  False) xs
