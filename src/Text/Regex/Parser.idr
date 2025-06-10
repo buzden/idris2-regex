@@ -93,6 +93,7 @@ lex orig = go (E [<]) orig where
   go ctx $ '?' :: xs = go (push ctx Opt) xs
   go ctx $ '|' :: xs = go (push ctx Alt) xs
   go ctx xxs@('('::'?'::':' :: xs) = go (G ctx True  (length orig `minus` length xxs) [<]) xs
+  go ctx xxs@('('::'?'      :: xs) = Left $ RegexIsBad (length orig `minus` length xs) "unknown type of special group"
   go ctx xxs@('('           :: xs) = go (G ctx False (length orig `minus` length xxs) [<]) xs
   go (E {}) xxs@(')' :: xs) = Left $ RegexIsBad (length orig `minus` length xxs) "unmatched closing parenthesis"
   go (G ctx mtch op ls) $ ')' :: xs = go (push ctx $ Group mtch $ cast ls) xs
@@ -101,11 +102,11 @@ lex orig = go (E [<]) orig where
   go ctx $ '{' :: xs = do let (bnds, rest) = span (/= '}') xs
                           let '}' :: rest = rest | _ => Left $ RegexIsBad (length orig `minus` length rest) "`}` is expected"
                           let pos : Lazy Nat := length orig `minus` length xs
-                          let l@(_::_):::[r@(_::_)] = split (== ',') bnds
-                            | l:::_::_ => Left $ RegexIsBad pos "too many commas in the bounds, zero or one is expected"
-                            | l:::[]   => parseNat Z pos l >>= \n => go (push ctx $ RepN n) $ assert_smaller xs rest
-                            | []:::[r] => parseNat Z pos r >>= \n => go (push ctx $ RepN_ n) $ assert_smaller xs rest
-                            | l:::[[]] => parseNat Z pos l >>= \n => go (push ctx $ Rep_M n) $ assert_smaller xs rest
+                          let l@(_::_):::r@(_::_)::[] = split (== ',') bnds
+                            | l:::[]     => parseNat Z pos l >>= \n => go (push ctx $ RepN n) $ assert_smaller xs rest
+                            | []:::r::[] => parseNat Z pos r >>= \n => go (push ctx $ RepN_ n) $ assert_smaller xs rest
+                            | l:::[]::[] => parseNat Z pos l >>= \n => go (push ctx $ Rep_M n) $ assert_smaller xs rest
+                            | _          => Left $ RegexIsBad pos "too many commas in the bounds, zero or one is expected"
                           r <- parseNat Z (1 + pos + length l) r; l <- parseNat Z pos l
                           go (push ctx $ RepNM l r) $ assert_smaller xs rest
   go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True [Class True  Word]) xs
