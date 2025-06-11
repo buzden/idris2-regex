@@ -39,11 +39,11 @@ data RxLex
   | RepNM Nat Nat -- {n,m}
   | Rep_M Nat -- {,m}
 
-data ParsingContext : Type where
-  E : SnocList RxLex -> ParsingContext
-  G : ParsingContext -> (matching : Bool) -> (openingPos : Nat) -> SnocList RxLex -> ParsingContext
+data LexingContext : Type where
+  E : SnocList RxLex -> LexingContext
+  G : LexingContext -> (matching : Bool) -> (openingPos : Nat) -> SnocList RxLex -> LexingContext
 
-push : ParsingContext -> RxLex -> ParsingContext
+push : LexingContext -> RxLex -> LexingContext
 push (E $ ls :< C l)          (C r) = E $ ls :< C (l ++ r)
 push (G sub m op $ ls :< C l) (C r) = G sub m op $ ls :< C (l ++ r)
 push (E ls)          l = E $ ls :< l
@@ -88,7 +88,7 @@ parseCharsSet origLen start curr (x :: xs) = parseCharsSet origLen False (curr :
 
 lex : List Char -> Either BadRegex $ SnocList RxLex
 lex orig = go (E [<]) orig where
-  go : ParsingContext -> List Char -> Either BadRegex $ SnocList RxLex
+  go : LexingContext -> List Char -> Either BadRegex $ SnocList RxLex
   go (E curr)     [] = pure curr
   go (G _ _ op _) [] = Left $ RegexIsBad op "unmatched opening parenthesis"
   go ctx $ '.' :: xs = go (push ctx AnyC) xs
@@ -139,11 +139,11 @@ lex orig = go (E [<]) orig where
 --- Parsing ---
 ---------------
 
-parseRegex' : Regex rx => List Char -> Either BadRegex $ Exists rx
+parseRegex' : Regex rx => SnocList RxLex -> Either BadRegex $ Exists $ \n => rx $ Vect n String
 
 export %inline
 parseRegex : Regex rx => String -> Either BadRegex $ Exists rx
-parseRegex = parseRegex' . unpack
+parseRegex str = map (\(Evidence _ r) => Evidence _ r) . parseRegex' {rx} =<< lex (unpack str)
 
 public export %inline
 toRegex : Regex rx => (s : String) -> (0 _ : IsRight $ parseRegex {rx} s) => rx $ fst $ fromRight $ parseRegex {rx} s
