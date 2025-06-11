@@ -124,9 +124,9 @@ lex orig = go (MkLexCtxt E [<]) orig where
   go ctx $ '^' :: xs = go (push ctx SOL) xs
   go ctx $ '$' :: xs = go (push ctx EOL) xs
   go ctx $ '|' :: xs = go (push ctx Alt) xs
-  go ctx xxs@('('::'?'::':' :: xs) = go (MkLexCtxt (G ctx True  (pos xxs)) [<]) xs
+  go ctx xxs@('('::'?'::':' :: xs) = go (MkLexCtxt (G ctx False (pos xxs)) [<]) xs
   go ctx xxs@('('::'?'      :: xs) = Left $ RegexIsBad (pos xs) "unknown type of special group"
-  go ctx xxs@('('           :: xs) = go (MkLexCtxt (G ctx False (pos xxs)) [<]) xs
+  go ctx xxs@('('           :: xs) = go (MkLexCtxt (G ctx True (pos xxs)) [<]) xs
   go (MkLexCtxt E _) xxs@(')' :: xs) = Left $ RegexIsBad (pos xxs) "unmatched closing parenthesis"
   go (MkLexCtxt (G ctx mtch op) ls) $ ')' :: xs = go (push ctx $ Group mtch ls) xs
   go ctx xxs@('['::'^' :: xs) = parseCharsSet (pos xxs) orL True [<] xs >>= \(rest, cs) => go (push ctx $ Cs False cs) $ assert_smaller xs rest
@@ -227,4 +227,5 @@ export %macro
     | Left (RegexIsBad idx reason) => do failAt (patchFC idx $ getFC !(quote str)) "Bad regular expression at position \{show idx}: \{reason}"
   Just Refl <- catch $ check {expected = a = ty} `(Refl)
     | Nothing => do fail "Unable to match expected type \{show !(quote a)} with the regex type \{show !(quote ty)}"
+    -- TODO to add nice error message when only count of matched groups is wrong
   pure r
