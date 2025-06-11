@@ -169,12 +169,19 @@ lex orig = go (MkLexCtxt E [<]) orig where
 --- Parsing ---
 ---------------
 
-crumple : {0 f : _} -> List (Exists $ \n => f $ Vect n a) -> Exists $ \tys => (All f tys, Exists $ \n => All Prelude.id tys -> Vect n a)
-crumple []                   = Evidence _ ([], Evidence _ $ \case [] => [])
-crumple (Evidence n r :: rs) = let Evidence tys' (rs, Evidence n' conv) = crumple {f} rs in Evidence _ (r::rs, Evidence _ $ \(x::xs) => x ++ conv xs)
+crumple : Monoid a => {0 f : _} ->
+          List (n ** f $ Vect n a) ->
+          Exists $ \tys => (All f tys, (n ** (All Prelude.id tys -> Vect n a, Any Prelude.id tys -> Vect n a)))
+crumple []                   = Evidence _ ([], MkDPair _ (\case [] => [], \case Here impossible))
+crumple ((n ** r) :: rs) = do
+  let Evidence tys' (rs, (n' ** (cAll, cAny))) = crumple {f} rs
+  let spreadAny : Any Prelude.id (Vect n a :: tys') -> Vect (n + n') a
+      spreadAny $ Here x  = x ++ replicate n' neutral
+      spreadAny $ There x = replicate n neutral ++ cAny x
+  Evidence _ (r::rs, (_ ** (\(x::xs) => x ++ cAll xs, spreadAny)))
 
-concatAll : Regex rx => List (Exists $ \n => rx $ Vect n String) -> Exists $ \n => rx $ Vect n String
-concatAll xs = let Evidence _ (rs, Evidence _ conv) = crumple xs in Evidence _ $ conv <$> all rs
+concatAll : Regex rx => List (n ** rx $ Vect n String) -> (n ** rx $ Vect n String)
+concatAll xs = let Evidence _ (rs, MkDPair _ (conv, _)) = crumple xs in (_ ** conv <$> all rs)
 
 -- Operation priorities:
 -- - highest: postfix ops: *, +, ?, {..}
@@ -183,22 +190,23 @@ concatAll xs = let Evidence _ (rs, Evidence _ conv) = crumple xs in Evidence _ $
 parseRegex' : Regex rx => List RxLex -> Exists $ \n => rx $ Vect n String
 parseRegex' = alts where
   alts : List RxLex -> Exists $ \n => rx $ Vect n String
-  conseq : List RxLex -> List $ Exists $ \n => rx $ Vect n String
+  conseq : List RxLex -> List (n ** rx $ Vect n String)
   alts lxs = do
-    let alts = forget $ concatAll . conseq <$> List.split (\case Alt => True; _ => False) lxs
-    ?parseRegex_rhs
-  conseq [] = pure $ Evidence _ $ pure []
-  conseq $ C [<c]         :: xs = (:: conseq xs) $ Evidence _ $ [] <$ char c
-  conseq $ C cs           :: xs = (:: conseq xs) $ Evidence _ $ [] <$ string (pack $ cast cs)
-  conseq $ WB l r         :: xs = (:: conseq xs) $ Evidence _ $ [] <$ wordBoundary l r
-  conseq $ Cs nonneg cs   :: xs = (:: conseq xs) $ Evidence _ $ [] <$ sym (\c => nonneg == all (matchesBracket c) cs)
-  conseq $ Group False sx :: xs = (:: conseq xs) $ Evidence _ $ [] <$ (alts $ cast sx).snd
-  conseq $ Group True  sx :: xs = (:: conseq xs) $ Evidence 1 $ (::[]) <$> matchOf (alts $ cast sx).snd
-  conseq $ SOL            :: xs = (:: conseq xs) $ Evidence _ $ [] <$ sol
-  conseq $ EOL            :: xs = (:: conseq xs) $ Evidence _ $ [] <$ eol
-  conseq $ AnyC           :: xs = (:: conseq xs) $ Evidence _ $ [] <$ anyChar
-  conseq $ Post lx op     :: xs = (:: conseq xs) $ Evidence _ $ [] <$ (postfixOp op (alts [lx]).snd).snd
-  conseq $ Alt            :: xs = (:: conseq xs) $ Evidence _ $ pure [] -- should never happen, actually
+    let alts = forget $ concatAll . assert_total conseq <$> List.split (\case Alt => True; _ => False) lxs
+    let Evidence tys (alts, (n ** (_, conv))) = crumple alts
+    Evidence _ $ map conv $ exists alts
+  conseq [] = pure (_ ** pure [])
+  conseq $ C [<c]         :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ char c
+  conseq $ C cs           :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ string (pack $ cast cs)
+  conseq $ WB l r         :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ wordBoundary l r
+  conseq $ Cs nonneg cs   :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ sym (\c => nonneg == all (matchesBracket c) cs)
+  conseq $ Group False sx :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ (alts $ cast sx).snd
+  conseq $ Group True  sx :: xs = (:: conseq xs) $ MkDPair 1 $ (::[]) <$> matchOf (alts $ cast sx).snd
+  conseq $ SOL            :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ sol
+  conseq $ EOL            :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ eol
+  conseq $ AnyC           :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ anyChar
+  conseq $ Post lx op     :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ (postfixOp op (alts [lx]).snd).snd
+  conseq $ Alt            :: xs = (:: conseq xs) $ MkDPair _ $ pure [] -- should never happen, actually
 
 export %inline
 parseRegex : Regex rx => String -> Either BadRegex $ Exists rx
