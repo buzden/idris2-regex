@@ -13,6 +13,7 @@ modules = Text.Matcher
         , Text.Regex.Interface
         , Text.Regex.Naive
         , Text.Regex.Parser
+        , Text.Regex.Parser.ERE
 
 depends = best-alternative
         , i-hate-parens
