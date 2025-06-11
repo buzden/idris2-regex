@@ -119,3 +119,34 @@ charClass Graph    = \c => chr 0x21 <= c && c <= chr 0x7E
 charClass Print    = \c => c == ' ' || charClass Graph c
 charClass Ascii    = \c => chr 0x00 <= c && c <= chr 0x7F
 charClass Punct    = \c => charClass Graph c && not (isSpace c) && not (isAlphaNum c)
+
+--- Special combinations ---
+
+||| A digit of given base
+export
+digit' : Regex rx => (base : Nat) -> (0 _ : So (2 <= base && base <= 36)) => rx $ Fin base
+digit' base@(S _) = do
+  let tofin = \n => fromMaybe FZ {- must never happen -} $ integerToFin (cast n) base
+  let ord0 = ord '0'
+  let ordA = ord 'a'
+  let pred = if base <= 10
+               then let upDig = chr $ ord0 + cast base              in \c => '0' <= c && c <= upDig
+               else let upLet = chr $ ordA + cast (base `minus` 10) in \c => '0' <= c && c <= '9' || 'a' <= c && c <= upLet
+  sym pred <&> \c => tofin $ ord c - if c <= '9' then ord0 else ordA
+
+||| A 10-base digit
+public export %inline
+digit : Regex rx => rx $ Fin 10
+digit = digit' 10
+
+||| A natural number regex without any sign
+export
+naturalNumber' : Regex rx => (base : Nat) ->  (0 _ : So (2 <= base && base <= 36)) => rx Nat
+naturalNumber' base = rep1 (digit' base) <&> \(h:::tl) => go (cast h) tl where
+  go : Nat -> List (Fin base) -> Nat
+  go acc []      = acc
+  go acc (x::xs) = go (acc * base + cast x) xs
+
+public export %inline
+naturalNumber : Regex rx => rx Nat
+naturalNumber = naturalNumber' 10
