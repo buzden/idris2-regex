@@ -157,17 +157,17 @@ lex orig = go (MkLexCtxt E [<]) orig where
 -- - highest: postfix ops: *, +, ?, {..}
 -- - middle: sequencing
 -- - low: infix op: |
-parseRegex' : Regex rx => List RxLex -> Either BadRegex $ Exists $ \n => rx $ Vect n String
+parseRegex' : Regex rx => List RxLex -> Exists $ \n => rx $ Vect n String
 parseRegex' = alts where
-  alts : List RxLex -> Either BadRegex $ Exists $ \n => rx $ Vect n String
-  conseq : List RxLex -> Either BadRegex $ Exists $ \n => rx $ Vect n String
+  alts : List RxLex -> Exists $ \n => rx $ Vect n String
+  conseq : List RxLex -> Exists $ \n => rx $ Vect n String
   alts lxs = do
-    alts <- traverse conseq $ forget $ List.split (\case Alt => True; _ => False) lxs
-    pure $ ?parseRegex_rhs
+    let alts = conseq <$> List.split (\case Alt => True; _ => False) lxs
+    ?parseRegex_rhs
 
 export %inline
 parseRegex : Regex rx => String -> Either BadRegex $ Exists rx
-parseRegex str = map (\(Evidence _ r) => Evidence _ r) . parseRegex' . cast =<< lex (unpack str)
+parseRegex str = (\(Evidence _ r) => Evidence _ r) . parseRegex' . cast <$> lex (unpack str)
 
 public export %inline
 toRegex : Regex rx => (s : String) -> (0 _ : IsRight $ parseRegex {rx} s) => rx $ fst $ fromRight $ parseRegex {rx} s
