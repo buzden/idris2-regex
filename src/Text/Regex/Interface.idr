@@ -34,6 +34,8 @@ interface Alternative rx => Regex rx where
   string = map pack . sequence . map char . unpack
 
   withMatch : rx a -> rx (String, a)
+  matchOf : rx a -> rx String
+  matchOf = map fst . withMatch
 
   ||| Matches all of given sub-regexes, sequentially.
   all : All rx tys -> rx $ HList tys
@@ -54,10 +56,6 @@ interface Alternative rx => Regex rx where
 export %inline
 omega : Regex rx => rx ()
 omega = pure ()
-
-export %inline
-matchedOf : Regex rx => rx a -> rx String
-matchedOf = map fst . withMatch
 
 --- Special repetitions ---
 

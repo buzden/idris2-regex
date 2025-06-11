@@ -13,6 +13,10 @@ public export
 data BadRegex : Type where
   RegexIsBad : (index : Nat) -> (reason : String) -> BadRegex
 
+--------------
+--- Lexing ---
+--------------
+
 data Chars
   = One Char
   | Class Bool CharClass -- False means negation of this char class
@@ -130,6 +134,10 @@ lex orig = go (E [<]) orig where
   go ctx $ '\\'::'\\' :: xs = go (push ctx $ C [<'\\']) xs
   go ctx $ '\\'::xxs@(x::_) = Left $ RegexIsBad (length orig `minus` length xxs) "unknown quote character '\\\{show x}'"
   go ctx $ x :: xs = go (push ctx $ C [<x]) xs
+
+---------------
+--- Parsing ---
+---------------
 
 parseRegex' : Regex rx => List Char -> Either BadRegex $ Exists rx
 
