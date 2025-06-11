@@ -37,17 +37,27 @@ data RxLex
   | EOL -- $
   | AnyC -- .
   | Alt -- |
-  | Post PostfixOp
+  | Post RxLex PostfixOp
 
-data LexingContext : Type where
-  E : SnocList RxLex -> LexingContext
-  G : LexingContext -> (matching : Bool) -> (openingPos : Nat) -> SnocList RxLex -> LexingContext
+data CtxtNesting : Type
+record LexCtxt where
+  constructor MkLexCtxt
+  nesting : CtxtNesting
+  lexemes : SnocList RxLex
 
-push : LexingContext -> RxLex -> LexingContext
-push (E $ ls :< C l)          (C r) = E $ ls :< C (l ++ r)
-push (G sub m op $ ls :< C l) (C r) = G sub m op $ ls :< C (l ++ r)
-push (E ls)          l = E $ ls :< l
-push (G sub m op ls) l = G sub m op $ ls :< l
+data CtxtNesting : Type where
+  E : CtxtNesting
+  G : LexCtxt -> (matching : Bool) -> (openingPos : Nat) -> CtxtNesting
+
+push : LexCtxt -> RxLex -> LexCtxt
+push (MkLexCtxt ch $ ls :< C l) (C r) = MkLexCtxt ch $ ls :< C (l ++ r)
+push (MkLexCtxt ch ls)          l     = MkLexCtxt ch $ ls :< l
+
+pushPostfix : (pos : Lazy Nat) -> LexCtxt -> PostfixOp -> Either BadRegex LexCtxt
+pushPostfix pos (MkLexCtxt ch $ sx :< C (cs@(_:<_) :< last)) op = pure $ MkLexCtxt ch $ sx :< C cs :< Post (C [<last]) op
+pushPostfix pos (MkLexCtxt ch $ sx :< Alt                  ) _  = Left $ RegexIsBad pos "illegal postfix operator after `|`"
+pushPostfix pos (MkLexCtxt ch $ sx :< x                    ) op = pure $ MkLexCtxt ch $ sx :< Post x op
+pushPostfix pos _                                            _  = Left $ RegexIsBad pos "nothing to apply the postfix operator"
 
 parseNat : (acc : Nat) -> (pos : Lazy Nat) -> List Char -> Either BadRegex Nat
 parseNat acc pos [] = Left $ RegexIsBad pos "a number is expected"
@@ -87,38 +97,38 @@ parseCharsSet stL orL start curr $ '['::':'::'w'::'o'::'r'::'d'::':'::']'       
 parseCharsSet stL orL start curr (x :: xs) = parseCharsSet stL orL False (curr :< One x) xs
 
 lex : List Char -> Either BadRegex $ SnocList RxLex
-lex orig = go (E [<]) orig where
+lex orig = go (MkLexCtxt E [<]) orig where
   orL : Nat
   orL = length orig
   pos : (left : List Char) -> Nat
   pos xs = orL `minus` length xs
-  go : LexingContext -> List Char -> Either BadRegex $ SnocList RxLex
-  go (E curr)     [] = pure curr
-  go (G _ _ op _) [] = Left $ RegexIsBad op "unmatched opening parenthesis"
+  go : LexCtxt -> List Char -> Either BadRegex $ SnocList RxLex
+  go (MkLexCtxt E curr)       [] = pure curr
+  go (MkLexCtxt (G _ _ op) _) [] = Left $ RegexIsBad op "unmatched opening parenthesis"
   go ctx $ '.' :: xs = go (push ctx AnyC) xs
   go ctx $ '^' :: xs = go (push ctx SOL) xs
   go ctx $ '$' :: xs = go (push ctx EOL) xs
-  go ctx $ '*' :: xs = go (push ctx $ Post Rep0) xs
-  go ctx $ '+' :: xs = go (push ctx $ Post Rep1) xs
-  go ctx $ '?' :: xs = go (push ctx $ Post Opt) xs
   go ctx $ '|' :: xs = go (push ctx Alt) xs
-  go ctx xxs@('('::'?'::':' :: xs) = go (G ctx True  (pos xxs) [<]) xs
+  go ctx xxs@('('::'?'::':' :: xs) = go (MkLexCtxt (G ctx True  (pos xxs)) [<]) xs
   go ctx xxs@('('::'?'      :: xs) = Left $ RegexIsBad (pos xs) "unknown type of special group"
-  go ctx xxs@('('           :: xs) = go (G ctx False (pos xxs) [<]) xs
-  go (E {}) xxs@(')' :: xs) = Left $ RegexIsBad (pos xxs) "unmatched closing parenthesis"
-  go (G ctx mtch op ls) $ ')' :: xs = go (push ctx $ Group mtch ls) xs
+  go ctx xxs@('('           :: xs) = go (MkLexCtxt (G ctx False (pos xxs)) [<]) xs
+  go (MkLexCtxt E _) xxs@(')' :: xs) = Left $ RegexIsBad (pos xxs) "unmatched closing parenthesis"
+  go (MkLexCtxt (G ctx mtch op) ls) $ ')' :: xs = go (push ctx $ Group mtch ls) xs
   go ctx xxs@('['::'^' :: xs) = parseCharsSet (pos xxs) orL True [<] xs >>= \(rest, cs) => go (push ctx $ Cs False cs) $ assert_smaller xs rest
   go ctx xxs@('['      :: xs) = parseCharsSet (pos xxs) orL True [<] xs >>= \(rest, cs) => go (push ctx $ Cs True  cs) $ assert_smaller xs rest
-  go ctx $ '{' :: xs = do let (bnds, rest) = span (/= '}') xs
-                          let '}' :: rest = rest | _ => Left $ RegexIsBad (pos rest) "`}` is expected"
-                          let pos : Lazy Nat := pos xs
-                          let l@(_::_):::r@(_::_)::[] = split (== ',') bnds
-                            | l:::[]     => parseNat Z pos l >>= \n => go (push ctx $ Post $ RepN n) $ assert_smaller xs rest
-                            | []:::r::[] => parseNat Z pos r >>= \n => go (push ctx $ Post $ RepN_ n) $ assert_smaller xs rest
-                            | l:::[]::[] => parseNat Z pos l >>= \n => go (push ctx $ Post $ Rep_M n) $ assert_smaller xs rest
-                            | _          => Left $ RegexIsBad pos "too many commas in the bounds, zero or one is expected"
-                          r <- parseNat Z (1 + pos + length l) r; l <- parseNat Z pos l
-                          go (push ctx $ Post $ RepNM l r) $ assert_smaller xs rest
+  go ctx xxs@('*' :: xs) = go !(pushPostfix (pos xxs) ctx Rep0) xs
+  go ctx xxs@('+' :: xs) = go !(pushPostfix (pos xxs) ctx Rep1) xs
+  go ctx xxs@('?' :: xs) = go !(pushPostfix (pos xxs) ctx Opt) xs
+  go ctx xxs@('{' :: xs) = do let (bnds, rest) = span (/= '}') xs
+                              let '}' :: rest = rest | _ => Left $ RegexIsBad (pos rest) "`}` is expected"
+                              let posxs : Lazy Nat := pos xs
+                              let l@(_::_):::r@(_::_)::[] = split (== ',') bnds
+                                | l:::[]     => parseNat Z posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN n) $ assert_smaller xs rest
+                                | []:::r::[] => parseNat Z posxs r >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN_ n) $ assert_smaller xs rest
+                                | l:::[]::[] => parseNat Z posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ Rep_M n) $ assert_smaller xs rest
+                                | _          => Left $ RegexIsBad posxs "too many commas in the bounds, zero or one is expected"
+                              r <- parseNat Z (1 + posxs + length l) r; l <- parseNat Z posxs l
+                              go !(pushPostfix (pos xxs) ctx $ RepNM l r) $ assert_smaller xs rest
   go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True [Class True  Word]) xs
   go ctx $ '\\'::'W' :: xs = go (push ctx $ Cs True [Class False Word]) xs
   go ctx $ '\\'::'s' :: xs = go (push ctx $ Cs True [Class True  Space]) xs
