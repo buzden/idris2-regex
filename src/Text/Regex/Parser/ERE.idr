@@ -14,27 +14,30 @@ import public Text.Regex.Parser
 --- Lexing ---
 --------------
 
-data Chars
+data BracketChars
   = One Char
   | Class Bool CharClass -- False means negation of this char class
   | Range Char Char
 
-data RxLex
-  = C (SnocList Char)
-  | WB Bool Bool -- word boundary, left, right, both or non-boundary
-  | Cs Bool (List Chars) -- [...] and [^...], bool `False` for `[^...]`
-  | Group Bool (SnocList RxLex) -- (...) and (?:...), bool `True` for matching group
-  | SOL -- ^
-  | EOL -- $
-  | Alt -- |
-  | AnyC -- .
-  | Rep0 -- *
+data PostfixOp
+  = Rep0 -- *
   | Rep1 -- +
   | Opt -- ?
   | RepN Nat -- {n}
   | RepN_ Nat -- {n,}
   | RepNM Nat Nat -- {n,m}
   | Rep_M Nat -- {,m}
+
+data RxLex
+  = C (SnocList Char)
+  | WB Bool Bool -- word boundary, left, right, both or non-boundary
+  | Cs Bool (List BracketChars) -- [...] and [^...], bool `False` for `[^...]`
+  | Group Bool (SnocList RxLex) -- (...) and (?:...), bool `True` for matching group
+  | SOL -- ^
+  | EOL -- $
+  | AnyC -- .
+  | Alt -- |
+  | Post PostfixOp
 
 data LexingContext : Type where
   E : SnocList RxLex -> LexingContext
@@ -55,7 +58,7 @@ parseNat acc pos (x::xs) = do
     [] => pure acc
     _  => parseNat acc (S pos) xs
 
-parseCharsSet : (startLen, origLen : Lazy Nat) -> (start : Bool) -> SnocList Chars -> List Char -> Either BadRegex (List Char, List Chars)
+parseCharsSet : (startLen, origLen : Lazy Nat) -> (start : Bool) -> SnocList BracketChars -> List Char -> Either BadRegex (List Char, List BracketChars)
 parseCharsSet stL orL start curr [] = Left $ RegexIsBad stL "unmatched opening bracket"
 parseCharsSet stL orL False curr (']' :: xs) = pure (xs, cast curr)
 parseCharsSet stL orL start curr lrxs@(l::'-'::r :: xs) = if l <= r
@@ -95,9 +98,9 @@ lex orig = go (E [<]) orig where
   go ctx $ '.' :: xs = go (push ctx AnyC) xs
   go ctx $ '^' :: xs = go (push ctx SOL) xs
   go ctx $ '$' :: xs = go (push ctx EOL) xs
-  go ctx $ '*' :: xs = go (push ctx Rep0) xs
-  go ctx $ '+' :: xs = go (push ctx Rep1) xs
-  go ctx $ '?' :: xs = go (push ctx Opt) xs
+  go ctx $ '*' :: xs = go (push ctx $ Post Rep0) xs
+  go ctx $ '+' :: xs = go (push ctx $ Post Rep1) xs
+  go ctx $ '?' :: xs = go (push ctx $ Post Opt) xs
   go ctx $ '|' :: xs = go (push ctx Alt) xs
   go ctx xxs@('('::'?'::':' :: xs) = go (G ctx True  (pos xxs) [<]) xs
   go ctx xxs@('('::'?'      :: xs) = Left $ RegexIsBad (pos xs) "unknown type of special group"
@@ -110,12 +113,12 @@ lex orig = go (E [<]) orig where
                           let '}' :: rest = rest | _ => Left $ RegexIsBad (pos rest) "`}` is expected"
                           let pos : Lazy Nat := pos xs
                           let l@(_::_):::r@(_::_)::[] = split (== ',') bnds
-                            | l:::[]     => parseNat Z pos l >>= \n => go (push ctx $ RepN n) $ assert_smaller xs rest
-                            | []:::r::[] => parseNat Z pos r >>= \n => go (push ctx $ RepN_ n) $ assert_smaller xs rest
-                            | l:::[]::[] => parseNat Z pos l >>= \n => go (push ctx $ Rep_M n) $ assert_smaller xs rest
+                            | l:::[]     => parseNat Z pos l >>= \n => go (push ctx $ Post $ RepN n) $ assert_smaller xs rest
+                            | []:::r::[] => parseNat Z pos r >>= \n => go (push ctx $ Post $ RepN_ n) $ assert_smaller xs rest
+                            | l:::[]::[] => parseNat Z pos l >>= \n => go (push ctx $ Post $ Rep_M n) $ assert_smaller xs rest
                             | _          => Left $ RegexIsBad pos "too many commas in the bounds, zero or one is expected"
                           r <- parseNat Z (1 + pos + length l) r; l <- parseNat Z pos l
-                          go (push ctx $ RepNM l r) $ assert_smaller xs rest
+                          go (push ctx $ Post $ RepNM l r) $ assert_smaller xs rest
   go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True [Class True  Word]) xs
   go ctx $ '\\'::'W' :: xs = go (push ctx $ Cs True [Class False Word]) xs
   go ctx $ '\\'::'s' :: xs = go (push ctx $ Cs True [Class True  Space]) xs
@@ -140,11 +143,21 @@ lex orig = go (E [<]) orig where
 --- Parsing ---
 ---------------
 
-parseRegex' : Regex rx => SnocList RxLex -> Either BadRegex $ Exists $ \n => rx $ Vect n String
+-- Operation priorities:
+-- - highest: postfix ops: *, +, ?, {..}
+-- - middle: sequencing
+-- - low: infix op: |
+parseRegex' : Regex rx => List RxLex -> Either BadRegex $ Exists $ \n => rx $ Vect n String
+parseRegex' = alts where
+  alts : List RxLex -> Either BadRegex $ Exists $ \n => rx $ Vect n String
+  conseq : List RxLex -> Either BadRegex $ Exists $ \n => rx $ Vect n String
+  alts lxs = do
+    alts <- traverse conseq $ forget $ List.split (\case Alt => True; _ => False) lxs
+    pure $ ?parseRegex_rhs
 
 export %inline
 parseRegex : Regex rx => String -> Either BadRegex $ Exists rx
-parseRegex str = map (\(Evidence _ r) => Evidence _ r) . parseRegex' {rx} =<< lex (unpack str)
+parseRegex str = map (\(Evidence _ r) => Evidence _ r) . parseRegex' . cast =<< lex (unpack str)
 
 public export %inline
 toRegex : Regex rx => (s : String) -> (0 _ : IsRight $ parseRegex {rx} s) => rx $ fst $ fromRight $ parseRegex {rx} s

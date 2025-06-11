@@ -57,13 +57,9 @@ export %inline
 omega : Regex rx => rx ()
 omega = pure ()
 
---- Special repetitions ---
-
 export
 repeatN : Regex rx => (n : Nat) -> rx a -> rx $ Vect n a
-repeatN Z     _ = pure []
-repeatN (S Z) r = r <&> pure
-repeatN (S n) r = [| r :: repeatN n r |]
+repeatN n = sequence . replicate n
 
 export
 repeatAtLeast : Regex rx => (n : Nat) -> rx a -> rx $ List a
@@ -77,6 +73,8 @@ repeatAtMost (S m) r = [| r :: repeatAtMost m r |] <|> pure []
 export
 repeatNM : Regex rx => (n, m : Nat) -> (0 _ : n `LTE` m) => rx a -> rx $ List a
 repeatNM n m r = [| map toList (repeatN n r) ++ repeatAtMost (m `minus` n) r |]
+
+-- `optional` is already defined in `Data.Alternative`
 
 --- Special chars ---
 
