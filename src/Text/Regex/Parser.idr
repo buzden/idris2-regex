@@ -152,8 +152,12 @@ toRegex s = snd $ fromRight $ parseRegex {rx} s
 export %macro
 (.rx) : Regex rx => String -> Elab $ rx a
 (.rx) str = do
+  let patchFC : Nat -> FC -> FC
+      patchFC ofs fc@(MkFC origin (l, c) (l', _))        = if l /= l' then fc else let p = (l, c + cast ofs) in MkFC origin p p
+      patchFC ofs fc@(MkVirtualFC origin (l, c) (l', _)) = if l /= l' then fc else let p = (l, c + cast ofs) in MkVirtualFC origin p p
+      patchFC ofs EmptyFC                                = EmptyFC
   let Right $ Evidence ty r = parseRegex {rx} str
-    | Left (RegexIsBad idx reason) => do failAt (getFC !(quote str)) "Bad regular expression at position \{show idx}: \{reason}"
+    | Left (RegexIsBad idx reason) => do failAt (patchFC idx $ getFC !(quote str)) "Bad regular expression at position \{show idx}: \{reason}"
   Just Refl <- catch $ check {expected = a = ty} `(Refl)
     | Nothing => do fail "Unable to match expected type \{show !(quote a)} with the regex type \{show !(quote ty)}"
   pure r
