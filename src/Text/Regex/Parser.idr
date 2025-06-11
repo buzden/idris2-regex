@@ -26,7 +26,7 @@ data RxLex
   = C (SnocList Char)
   | WB Bool Bool -- word boundary, left, right, both or non-boundary
   | Cs Bool (List Chars) -- [...] and [^...], bool `False` for `[^...]`
-  | Group Bool (List RxLex) -- (...) and (?:...), bool `True` for matching group
+  | Group Bool (SnocList RxLex) -- (...) and (?:...), bool `True` for matching group
   | SOL -- ^
   | EOL -- $
   | Alt -- |
@@ -86,10 +86,10 @@ parseCharsSet origLen start curr $ '['::':'::'a'::'s'::'c'::'i'::'i'::':'::']'  
 parseCharsSet origLen start curr $ '['::':'::'w'::'o'::'r'::'d'::':'::']'           :: xs = parseCharsSet origLen False (curr :< Class True Word) xs
 parseCharsSet origLen start curr (x :: xs) = parseCharsSet origLen False (curr :< One x) xs
 
-lex : List Char -> Either BadRegex $ List RxLex
+lex : List Char -> Either BadRegex $ SnocList RxLex
 lex orig = go (E [<]) orig where
-  go : ParsingContext -> List Char -> Either BadRegex $ List RxLex
-  go (E curr)     [] = pure $ cast curr
+  go : ParsingContext -> List Char -> Either BadRegex $ SnocList RxLex
+  go (E curr)     [] = pure curr
   go (G _ _ op _) [] = Left $ RegexIsBad op "unmatched opening parenthesis"
   go ctx $ '.' :: xs = go (push ctx AnyC) xs
   go ctx $ '^' :: xs = go (push ctx SOL) xs
@@ -102,7 +102,7 @@ lex orig = go (E [<]) orig where
   go ctx xxs@('('::'?'      :: xs) = Left $ RegexIsBad (length orig `minus` length xs) "unknown type of special group"
   go ctx xxs@('('           :: xs) = go (G ctx False (length orig `minus` length xxs) [<]) xs
   go (E {}) xxs@(')' :: xs) = Left $ RegexIsBad (length orig `minus` length xxs) "unmatched closing parenthesis"
-  go (G ctx mtch op ls) $ ')' :: xs = go (push ctx $ Group mtch $ cast ls) xs
+  go (G ctx mtch op ls) $ ')' :: xs = go (push ctx $ Group mtch ls) xs
   go ctx $ '['::'^' :: xs = parseCharsSet (length orig) True [<] xs >>= \(rest, cs) => go (push ctx $ Cs False cs) $ assert_smaller xs rest
   go ctx $ '['      :: xs = parseCharsSet (length orig) True [<] xs >>= \(rest, cs) => go (push ctx $ Cs True  cs) $ assert_smaller xs rest
   go ctx $ '{' :: xs = do let (bnds, rest) = span (/= '}') xs
