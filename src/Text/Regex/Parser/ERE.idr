@@ -1,5 +1,6 @@
 module Text.Regex.Parser.ERE
 
+import Data.Alternative
 import public Data.Either
 import public Data.DPair
 
@@ -19,14 +20,14 @@ data BracketChars
   | Class Bool CharClass -- False means negation of this char class
   | Range Char Char
 
-data PostfixOp
-  = Rep0 -- *
-  | Rep1 -- +
-  | Opt -- ?
-  | RepN Nat -- {n}
-  | RepN_ Nat -- {n,}
-  | RepNM Nat Nat -- {n,m}
-  | Rep_M Nat -- {,m}
+data PostfixOp : Type where
+  Rep0  : PostfixOp -- *
+  Rep1  : PostfixOp -- +
+  Opt   : PostfixOp -- ?
+  RepN  : Nat -> PostfixOp -- {n}
+  RepN_ : Nat -> PostfixOp -- {n,}
+  RepNM : (l, r : Nat) -> (0 lr : l `LTE` r) => PostfixOp -- {n,m}
+  Rep_M : Nat -> PostfixOp -- {,m}
 
 data RxLex
   = C (SnocList Char)
@@ -38,6 +39,20 @@ data RxLex
   | AnyC -- .
   | Alt -- |
   | Post RxLex PostfixOp
+
+matchesBracket : Char -> BracketChars -> Bool
+matchesBracket c $ One k       = c == k
+matchesBracket c $ Class nn cl = nn == charClass cl c
+matchesBracket c $ Range l r   = l <= c && c <= r
+
+postfixOp : Regex rx => PostfixOp -> rx a -> Exists rx
+postfixOp Rep0         = Evidence _ . rep
+postfixOp Rep1         = Evidence _ . rep1
+postfixOp Opt          = Evidence _ . optional
+postfixOp (RepN n)     = Evidence _ . repeatN n
+postfixOp (RepN_ n)    = Evidence _ . repeatAtLeast n
+postfixOp (RepNM n m)  = Evidence _ . repeatNM n m
+postfixOp (Rep_M m)    = Evidence _ . repeatAtMost m
 
 data CtxtNesting : Type
 record LexCtxt where
@@ -128,6 +143,7 @@ lex orig = go (MkLexCtxt E [<]) orig where
                                 | l:::[]::[] => parseNat Z posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ Rep_M n) $ assert_smaller xs rest
                                 | _          => Left $ RegexIsBad posxs "too many commas in the bounds, zero or one is expected"
                               r <- parseNat Z (1 + posxs + length l) r; l <- parseNat Z posxs l
+                              let Yes lr = isLTE l r | No _ => Left $ RegexIsBad posxs "left bound must not be greater than right bound"
                               go !(pushPostfix (pos xxs) ctx $ RepNM l r) $ assert_smaller xs rest
   go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True [Class True  Word]) xs
   go ctx $ '\\'::'W' :: xs = go (push ctx $ Cs True [Class False Word]) xs
@@ -153,6 +169,13 @@ lex orig = go (MkLexCtxt E [<]) orig where
 --- Parsing ---
 ---------------
 
+crumple : {0 f : _} -> List (Exists $ \n => f $ Vect n a) -> Exists $ \tys => (All f tys, Exists $ \n => All Prelude.id tys -> Vect n a)
+crumple []                   = Evidence _ ([], Evidence _ $ \case [] => [])
+crumple (Evidence n r :: rs) = let Evidence tys' (rs, Evidence n' conv) = crumple {f} rs in Evidence _ (r::rs, Evidence _ $ \(x::xs) => x ++ conv xs)
+
+concatAll : Regex rx => List (Exists $ \n => rx $ Vect n String) -> Exists $ \n => rx $ Vect n String
+concatAll xs = let Evidence _ (rs, Evidence _ conv) = crumple xs in Evidence _ $ conv <$> all rs
+
 -- Operation priorities:
 -- - highest: postfix ops: *, +, ?, {..}
 -- - middle: sequencing
@@ -160,10 +183,22 @@ lex orig = go (MkLexCtxt E [<]) orig where
 parseRegex' : Regex rx => List RxLex -> Exists $ \n => rx $ Vect n String
 parseRegex' = alts where
   alts : List RxLex -> Exists $ \n => rx $ Vect n String
-  conseq : List RxLex -> Exists $ \n => rx $ Vect n String
+  conseq : List RxLex -> List $ Exists $ \n => rx $ Vect n String
   alts lxs = do
-    let alts = conseq <$> List.split (\case Alt => True; _ => False) lxs
+    let alts = forget $ concatAll . conseq <$> List.split (\case Alt => True; _ => False) lxs
     ?parseRegex_rhs
+  conseq [] = pure $ Evidence _ $ pure []
+  conseq $ C [<c]         :: xs = (:: conseq xs) $ Evidence _ $ [] <$ char c
+  conseq $ C cs           :: xs = (:: conseq xs) $ Evidence _ $ [] <$ string (pack $ cast cs)
+  conseq $ WB l r         :: xs = (:: conseq xs) $ Evidence _ $ [] <$ wordBoundary l r
+  conseq $ Cs nonneg cs   :: xs = (:: conseq xs) $ Evidence _ $ [] <$ sym (\c => nonneg == all (matchesBracket c) cs)
+  conseq $ Group False sx :: xs = (:: conseq xs) $ Evidence _ $ [] <$ (alts $ cast sx).snd
+  conseq $ Group True  sx :: xs = (:: conseq xs) $ Evidence 1 $ (::[]) <$> matchOf (alts $ cast sx).snd
+  conseq $ SOL            :: xs = (:: conseq xs) $ Evidence _ $ [] <$ sol
+  conseq $ EOL            :: xs = (:: conseq xs) $ Evidence _ $ [] <$ eol
+  conseq $ AnyC           :: xs = (:: conseq xs) $ Evidence _ $ [] <$ anyChar
+  conseq $ Post lx op     :: xs = (:: conseq xs) $ Evidence _ $ [] <$ (postfixOp op (alts [lx]).snd).snd
+  conseq $ Alt            :: xs = (:: conseq xs) $ Evidence _ $ pure [] -- should never happen, actually
 
 export %inline
 parseRegex : Regex rx => String -> Either BadRegex $ Exists rx

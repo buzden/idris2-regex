@@ -71,7 +71,7 @@ repeatAtMost Z     _ = pure []
 repeatAtMost (S m) r = [| r :: repeatAtMost m r |] <|> pure []
 
 export
-repeatNM : Regex rx => (n, m : Nat) -> (0 _ : n `LTE` m) => rx a -> rx $ List a
+repeatNM : Regex rx => (n, m : Nat) -> (0 nm : n `LTE` m) => rx a -> rx $ List a
 repeatNM n m r = [| map toList (repeatN n r) ++ repeatAtMost (m `minus` n) r |]
 
 -- `optional` is already defined in `Data.Alternative`
