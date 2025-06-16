@@ -1,5 +1,6 @@
 module Text.Regex.Interface
 
+import public Data.Alternative
 import Data.List
 import public Data.List.Quantifiers
 import public Data.List1
@@ -19,9 +20,13 @@ interface Alternative rx => Regex rx where
   char : Char -> rx Char
   char = sym . (==)
 
-  ||| Matches the start of the line/text
+  ||| Matches any single char.
+  anyChar : rx Char
+  anyChar = sym $ const True
+
+  ||| Matches the start of the line/text.
   sol : rx ()
-  ||| Matches the end of the line/text
+  ||| Matches the end of the line/text.
   eol : rx ()
 
   ||| Zero-width boundary between a word-class char and a non-word class char or an edge.
@@ -30,10 +35,13 @@ interface Alternative rx => Regex rx where
   ||| for any set both to `True`, for non-boundary set both to `False`.
   wordBoundary : (left : Bool) -> (right : Bool) -> rx ()
 
+  ||| Matches the given string.
   string : String -> rx String
   string = map pack . sequence . map char . unpack
 
+  ||| Regex having an original matched string along with the original value.
   withMatch : rx a -> rx (String, a)
+  ||| Regex having only the original matched string as a contained resulting value.
   matchOf : rx a -> rx String
   matchOf = map fst . withMatch
 
@@ -45,10 +53,27 @@ interface Alternative rx => Regex rx where
   exists : All rx tys -> rx $ Any Prelude.id tys
   exists = altAll
 
+  ||| Optional application of a given regex.
+  opt : rx a -> rx $ Maybe a
+  opt = optional
+
   rep1 : rx a -> rx $ List1 a
   rep1 r = [| r ::: rep r |]
   rep : rx a -> rx $ List a
   rep r = toList <$> rep1 r <|> pure []
+
+  repeatN : (n : Nat) -> rx a -> rx $ Vect n a
+  repeatN n = sequence . replicate n
+
+  repeatAtLeast : (n : Nat) -> rx a -> rx $ List a
+  repeatAtLeast n r = [| map toList (repeatN n r) ++ rep r |]
+
+  repeatAtMost : (m : Nat) -> rx a -> rx $ List a
+  repeatAtMost Z     _ = pure []
+  repeatAtMost (S m) r = [| r :: repeatAtMost m r |] <|> pure []
+
+  repeatNM : (n, m : Nat) -> (0 nm : n `LTE` m) => rx a -> rx $ List a
+  repeatNM n m r = [| map toList (repeatN n r) ++ repeatAtMost (m `minus` n) r |]
 
 --- Special general cases ---
 
@@ -57,30 +82,7 @@ export %inline
 omega : Regex rx => rx ()
 omega = pure ()
 
-export
-repeatN : Regex rx => (n : Nat) -> rx a -> rx $ Vect n a
-repeatN n = sequence . replicate n
-
-export
-repeatAtLeast : Regex rx => (n : Nat) -> rx a -> rx $ List a
-repeatAtLeast n r = [| map toList (repeatN n r) ++ rep r |]
-
-export
-repeatAtMost : Regex rx => (m : Nat) -> rx a -> rx $ List a
-repeatAtMost Z     _ = pure []
-repeatAtMost (S m) r = [| r :: repeatAtMost m r |] <|> pure []
-
-export
-repeatNM : Regex rx => (n, m : Nat) -> (0 nm : n `LTE` m) => rx a -> rx $ List a
-repeatNM n m r = [| map toList (repeatN n r) ++ repeatAtMost (m `minus` n) r |]
-
--- `optional` is already defined in `Data.Alternative`
-
 --- Special chars ---
-
-export %inline
-anyChar : Regex rx => rx Char
-anyChar = sym $ const True
 
 export %inline
 anyOf : Regex rx => List Char -> rx Char
