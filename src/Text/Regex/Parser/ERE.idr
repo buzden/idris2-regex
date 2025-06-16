@@ -1,3 +1,4 @@
+||| Parser of extended POSIX regular expressions with (hopefully) unambiguous extensions from PCRE.
 module Text.Regex.Parser.ERE
 
 import Data.Alternative
@@ -89,6 +90,13 @@ parseCharsSet stL orL False curr (']' :: xs) = pure (xs, cast curr)
 parseCharsSet stL orL start curr lrxs@(l::'-'::r :: xs) = if l <= r
   then parseCharsSet stL orL False (curr :< Range l r) xs
   else Left $ RegexIsBad (orL `minus` length lrxs) "invalid range, left is greater than `right"
+parseCharsSet stL orL start curr $ '\\'::'n' :: xs = parseCharsSet stL orL False (curr :< One '\n') xs
+parseCharsSet stL orL start curr $ '\\'::'r' :: xs = parseCharsSet stL orL False (curr :< One '\r') xs
+parseCharsSet stL orL start curr $ '\\'::'t' :: xs = parseCharsSet stL orL False (curr :< One '\t') xs
+parseCharsSet stL orL start curr $ '\\'::'f' :: xs = parseCharsSet stL orL False (curr :< One '\f') xs
+parseCharsSet stL orL start curr $ '\\'::'v' :: xs = parseCharsSet stL orL False (curr :< One '\v') xs
+parseCharsSet stL orL start curr $ '\\'::'0' :: xs = parseCharsSet stL orL False (curr :< One '\0') xs
+parseCharsSet stL orL start curr $ '\\'::'a' :: xs = parseCharsSet stL orL False (curr :< One '\a') xs
 parseCharsSet stL orL start curr $ '\\'::'w' :: xs = parseCharsSet stL orL False (curr :< Class True  Word) xs
 parseCharsSet stL orL start curr $ '\\'::'W' :: xs = parseCharsSet stL orL False (curr :< Class False Word) xs
 parseCharsSet stL orL start curr $ '\\'::'s' :: xs = parseCharsSet stL orL False (curr :< Class True  Space) xs
@@ -145,6 +153,7 @@ lex orig = go (MkLexCtxt E [<]) orig where
                               r <- parseNat Z (1 + posxs + length l) r; l <- parseNat Z posxs l
                               let Yes lr = isLTE l r | No _ => Left $ RegexIsBad posxs "left bound must not be greater than right bound"
                               go !(pushPostfix (pos xxs) ctx $ RepNM l r) $ assert_smaller xs rest
+  go ctx $ '\\'::'X' :: xs = go (push ctx AnyC) xs
   go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True [Class True  Word]) xs
   go ctx $ '\\'::'W' :: xs = go (push ctx $ Cs True [Class False Word]) xs
   go ctx $ '\\'::'s' :: xs = go (push ctx $ Cs True [Class True  Space]) xs
@@ -161,6 +170,7 @@ lex orig = go (MkLexCtxt E [<]) orig where
   go ctx $ '\\'::'f'  :: xs = go (push ctx $ C [<'\f']) xs
   go ctx $ '\\'::'v'  :: xs = go (push ctx $ C [<'\v']) xs
   go ctx $ '\\'::'0'  :: xs = go (push ctx $ C [<'\0']) xs
+  go ctx $ '\\'::'a'  :: xs = go (push ctx $ C [<'\a']) xs
   go ctx $ '\\'::'\\' :: xs = go (push ctx $ C [<'\\']) xs
   go ctx $ '\\'::xxs@(x::_) = Left $ RegexIsBad (pos xxs) "unknown quote character '\\\{show x}'"
   go ctx $ x :: xs = go (push ctx $ C [<x]) xs
