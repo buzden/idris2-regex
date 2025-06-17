@@ -93,7 +93,7 @@ parseNat base pos (x::xs) = do
     _  => parseNat base {acc} (S pos) xs
 
 parseCharsSet : (startLen, origLen : Lazy Nat) -> (start : Bool) -> SnocList BracketChars -> List Char -> Either BadRegex (List Char, List BracketChars)
-parseCharsSet stL orL start curr [] = Left $ RegexIsBad stL "unmatched opening bracket"
+parseCharsSet stL orL start curr [] = Left $ RegexIsBad stL "unmatched opening square bracket"
 parseCharsSet stL orL False curr (']' :: xs) = pure (xs, cast curr)
 parseCharsSet stL orL start curr lrxs@(l::'-'::r :: xs) = if l <= r
   then parseCharsSet stL orL False (curr :< Range l r) xs
@@ -111,6 +111,17 @@ parseCharsSet stL orL start curr $ '\\'::'s' :: xs = parseCharsSet stL orL False
 parseCharsSet stL orL start curr $ '\\'::'S' :: xs = parseCharsSet stL orL False (curr :< Class False Space) xs
 parseCharsSet stL orL start curr $ '\\'::'d' :: xs = parseCharsSet stL orL False (curr :< Class True  Digit) xs
 parseCharsSet stL orL start curr $ '\\'::'D' :: xs = parseCharsSet stL orL False (curr :< Class False Digit) xs
+parseCharsSet stL orL start curr $ '\\'::'x'::'{' :: xs = do
+  let (hexes, rest) = span (/= '}') xs
+  let '}' :: rest = rest | _ => Left $ RegexIsBad (orL `minus` S (length xs)) "unmatched opening curly bracket"
+  let True = length hexes <= 8 | False => Left $ RegexIsBad (orL `minus` length xs) "we expect no more than a 32-bit hex number"
+  n <- parseNat 16 (orL `minus` length xs) hexes
+  parseCharsSet stL orL False (curr :< One (chr $ cast n)) $ assert_smaller xs rest
+parseCharsSet stL orL start curr $ '\\'::'x'::ulxs@(u::l :: xs) = do
+  n <- parseNat 16 (orL `minus` length ulxs) [u,l]
+  parseCharsSet stL orL False (curr :< One (chr $ cast n)) xs
+parseCharsSet stL orL start curr xxs@('\\'::'x':: xs) =
+  Left $ RegexIsBad (orL `minus` length xxs) "bad hex character command, use formats \xFF or \x{FFF...}"
 parseCharsSet stL orL start curr $ '['::':'::'u'::'p'::'p'::'e'::'r'::':'::']'      :: xs = parseCharsSet stL orL False (curr :< Class True Upper) xs
 parseCharsSet stL orL start curr $ '['::':'::'l'::'o'::'w'::'e'::'r'::':'::']'      :: xs = parseCharsSet stL orL False (curr :< Class True Lower) xs
 parseCharsSet stL orL start curr $ '['::':'::'a'::'l'::'p'::'h'::'a'::':'::']'      :: xs = parseCharsSet stL orL False (curr :< Class True Alpha) xs
