@@ -2,6 +2,7 @@
 module Text.Regex.Parser.ERE
 
 import Data.Alternative
+import Data.Bits
 import public Data.Either
 import public Data.DPair
 
@@ -114,8 +115,8 @@ parseCharsSet stL orL start curr $ '\\'::'D' :: xs = parseCharsSet stL orL False
 parseCharsSet stL orL start curr $ '\\'::'x'::'{' :: xs = do
   let (hexes, rest) = span (/= '}') xs
   let '}' :: rest = rest | _ => Left $ RegexIsBad (orL `minus` S (length xs)) "unmatched opening curly bracket"
-  let True = length hexes <= 8 | False => Left $ RegexIsBad (orL `minus` length xs) "we expect no more than a 32-bit hex number"
   n <- parseNat 16 (orL `minus` length xs) hexes
+  let True = shiftR (cast {to=Integer} n) 32 == 0 | False => Left $ RegexIsBad (orL `minus` length xs) "we expect no more than a 32-bit hex number"
   parseCharsSet stL orL False (curr :< One (chr $ cast n)) $ assert_smaller xs rest
 parseCharsSet stL orL start curr $ '\\'::'x'::ulxs@(u::l :: xs) = do
   n <- parseNat 16 (orL `minus` length ulxs) [u,l]
@@ -191,11 +192,12 @@ lex orig = go (MkLexCtxt E [<]) orig where
   go ctx $ '\\'::'0' :: xs = go (push ctx $ C [<'\0']) xs
   go ctx $ '\\'::'a' :: xs = go (push ctx $ C [<'\a']) xs
   go ctx $ '\\'::'\\':: xs = go (push ctx $ C [<'\\']) xs
-  go ctx $ '\\'::'x'::'{' :: xs = do let (hexes, rest) = span (/= '}') xs
-                                     let '}' :: rest = rest | _ => Left $ RegexIsBad (pos xs `minus` 1) "unmatched opening curly bracket"
-                                     let True = length hexes <= 8 | False => Left $ RegexIsBad (pos xs) "we expect no more than a 32-bit hex number"
-                                     n <- parseNat 16 (pos xs) hexes
-                                     go (push ctx $ C [< chr $ cast n]) $ assert_smaller xs rest
+  go ctx $ '\\'::'x'::'{' :: xs = do
+    let (hexes, rest) = span (/= '}') xs
+    let '}' :: rest = rest | _ => Left $ RegexIsBad (pos xs `minus` 1) "unmatched opening curly bracket"
+    n <- parseNat 16 (pos xs) hexes
+    let True = shiftR (cast {to=Integer} n) 32 == 0 | False => Left $ RegexIsBad (pos xs) "we expect no more than a 32-bit hex number"
+    go (push ctx $ C [< chr $ cast n]) $ assert_smaller xs rest
   go ctx $ '\\'::'x'::ulxs@(u::l :: xs) = parseNat 16 (pos ulxs) [u,l] >>= \n => go (push ctx $ C [< chr $ cast n]) xs
   go ctx xxs@('\\'::'x':: xs) = Left $ RegexIsBad (pos xxs) "bad hex character command, use formats \xFF or \x{FFF...}"
   go ctx $ '\\'::xxs@(x::_) = Left $ RegexIsBad (pos xxs) "unknown quote character '\\\{show x}'"
