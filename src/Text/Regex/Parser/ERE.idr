@@ -139,6 +139,7 @@ parseCharsSet stL orL start curr $ '['::':'::'a'::'s'::'c'::'i'::'i'::':'::']'  
 parseCharsSet stL orL start curr $ '['::':'::'w'::'o'::'r'::'d'::':'::']'           :: xs = parseCharsSet stL orL False (curr :< Class True Word) xs
 parseCharsSet stL orL start curr (x :: xs) = parseCharsSet stL orL False (curr :< One x) xs
 
+export
 lex : List Char -> Either BadRegex $ SnocList RxLex
 lex orig = go (MkLexCtxt E [<]) orig where
   orL : Nat

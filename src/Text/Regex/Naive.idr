@@ -131,7 +131,8 @@ rawMatchAll r cs = case rawMatchIn r cs of
 ---------------------------------------
 
 export
-Regex Regex where
+Regex Naive.Regex where
+  sym' = ?sym_m_impl
   sym = Sym
   sol = Bound True
   eol = Bound False
