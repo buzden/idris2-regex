@@ -14,8 +14,11 @@ import public Data.Vect
 
 public export
 interface Alternative rx => Regex rx where
+  ||| Matches a symbol if the given function returns `Just`, and returns the contents of this `Just`.
+  sym' : (Char -> Maybe a) -> rx a
   ||| Matches a symbol satisfying the given predicate, and returns the matched char, or fails.
   sym : (Char -> Bool) -> rx Char
+  sym f = sym' $ \c => whenT (f c) c
   ||| Matches the given symbol and returns it, or fails.
   char : Char -> rx Char
   char = sym . (==)
@@ -120,17 +123,21 @@ charClass Punct    = \c => charClass Graph c && not (isSpace c) && not (isAlphaN
 
 --- Special combinations ---
 
-||| A digit of given base
 export
-digit' : Regex rx => (base : Nat) -> (0 _ : So (2 <= base && base <= 36)) => rx $ Fin base
-digit' base@(S _) = do
+parseDigit : (base : Nat) -> (0 _ : So (2 <= base && base <= 36)) => Char -> Maybe $ Fin base
+parseDigit base@(S _) c = do
   let tofin = \n => fromMaybe FZ {- must never happen -} $ integerToFin (cast n) base
   let ord0 = ord '0'
   let ordA = ord 'a'
   let pred = if base <= 10
-               then let upDig = chr $ ord0 + cast base              in \c => '0' <= c && c <= upDig
-               else let upLet = chr $ ordA + cast (base `minus` 10) in \c => '0' <= c && c <= '9' || 'a' <= c && c <= upLet
-  sym pred <&> \c => tofin $ ord c - if c <= '9' then ord0 else ordA
+               then let upDig = chr $ ord0 + cast base              in '0' <= c && c <= upDig
+               else let upLet = chr $ ordA + cast (base `minus` 10) in '0' <= c && c <= '9' || 'a' <= c && c <= upLet
+  whenT pred $ tofin $ ord c - if c <= '9' then ord0 else ordA
+
+||| A digit of given base
+export
+digit' : Regex rx => (base : Nat) -> (0 _ : So (2 <= base && base <= 36)) => rx $ Fin base
+digit' base = sym' $ parseDigit base
 
 ||| A 10-base digit
 public export %inline

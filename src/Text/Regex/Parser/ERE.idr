@@ -75,14 +75,22 @@ pushPostfix pos (MkLexCtxt ch $ sx :< Alt                  ) _  = Left $ RegexIs
 pushPostfix pos (MkLexCtxt ch $ sx :< x                    ) op = pure $ MkLexCtxt ch $ sx :< Post x op
 pushPostfix pos _                                            _  = Left $ RegexIsBad pos "nothing to apply the postfix operator"
 
-parseNat : (acc : Nat) -> (pos : Lazy Nat) -> List Char -> Either BadRegex Nat
-parseNat acc pos [] = Left $ RegexIsBad pos "a number is expected"
-parseNat acc pos (x::xs) = do
-  let True = '0' <= x && x <= '9' | _ => Left $ RegexIsBad pos "bad number"
-  let acc = acc * 10 + cast (ord x - ord '0')
+baseNumDescr : (base : Nat) -> String
+baseNumDescr 10 = "decimal"
+baseNumDescr 16 = "hexadecimal"
+baseNumDescr 2  = "binary"
+baseNumDescr 8  = "octal"
+baseNumDescr b  = "\{show b}-base"
+
+parseNat : (base : Nat) -> (0 _ : So $ 2 <= base && base <= 36) => {default Z acc : Nat} -> (pos : Lazy Nat) -> List Char -> Either BadRegex Nat
+parseNat base pos [] = Left $ RegexIsBad pos "a \{baseNumDescr base} number is expected"
+parseNat base pos (x::xs) = do
+  let Just n = parseDigit base x
+    | Nothing => Left $ RegexIsBad pos "bad \{baseNumDescr base} number"
+  let acc = acc * base + cast n
   case xs of
     [] => pure acc
-    _  => parseNat acc (S pos) xs
+    _  => parseNat base {acc} (S pos) xs
 
 parseCharsSet : (startLen, origLen : Lazy Nat) -> (start : Bool) -> SnocList BracketChars -> List Char -> Either BadRegex (List Char, List BracketChars)
 parseCharsSet stL orL start curr [] = Left $ RegexIsBad stL "unmatched opening bracket"
@@ -143,14 +151,14 @@ lex orig = go (MkLexCtxt E [<]) orig where
   go ctx xxs@('+' :: xs) = go !(pushPostfix (pos xxs) ctx Rep1) xs
   go ctx xxs@('?' :: xs) = go !(pushPostfix (pos xxs) ctx Opt) xs
   go ctx xxs@('{' :: xs) = do let (bnds, rest) = span (/= '}') xs
-                              let '}' :: rest = rest | _ => Left $ RegexIsBad (pos rest) "`}` is expected"
+                              let '}' :: rest = rest | _ => Left $ RegexIsBad (pos xxs) "unmatched opening curly bracket"
                               let posxs : Lazy Nat := pos xs
                               let l@(_::_):::r@(_::_)::[] = split (== ',') bnds
-                                | l:::[]     => parseNat Z posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN n) $ assert_smaller xs rest
-                                | []:::r::[] => parseNat Z posxs r >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN_ n) $ assert_smaller xs rest
-                                | l:::[]::[] => parseNat Z posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ Rep_M n) $ assert_smaller xs rest
+                                | l:::[]     => parseNat 10 posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN n) $ assert_smaller xs rest
+                                | []:::r::[] => parseNat 10 posxs r >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN_ n) $ assert_smaller xs rest
+                                | l:::[]::[] => parseNat 10 posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ Rep_M n) $ assert_smaller xs rest
                                 | _          => Left $ RegexIsBad posxs "too many commas in the bounds, zero or one is expected"
-                              r <- parseNat Z (1 + posxs + length l) r; l <- parseNat Z posxs l
+                              r <- parseNat 10 (1 + posxs + length l) r; l <- parseNat 10 posxs l
                               let Yes lr = isLTE l r | No _ => Left $ RegexIsBad posxs "left bound must not be greater than right bound"
                               go !(pushPostfix (pos xxs) ctx $ RepNM l r) $ assert_smaller xs rest
   go ctx $ '\\'::'X' :: xs = go (push ctx AnyC) xs
@@ -164,14 +172,21 @@ lex orig = go (MkLexCtxt E [<]) orig where
   go ctx $ '\\'::'B' :: xs = go (push ctx $ WB False False) xs
   go ctx $ '\\'::'<' :: xs = go (push ctx $ WB True  False) xs
   go ctx $ '\\'::'>' :: xs = go (push ctx $ WB False True) xs
-  go ctx $ '\\'::'n'  :: xs = go (push ctx $ C [<'\n']) xs
-  go ctx $ '\\'::'r'  :: xs = go (push ctx $ C [<'\r']) xs
-  go ctx $ '\\'::'t'  :: xs = go (push ctx $ C [<'\t']) xs
-  go ctx $ '\\'::'f'  :: xs = go (push ctx $ C [<'\f']) xs
-  go ctx $ '\\'::'v'  :: xs = go (push ctx $ C [<'\v']) xs
-  go ctx $ '\\'::'0'  :: xs = go (push ctx $ C [<'\0']) xs
-  go ctx $ '\\'::'a'  :: xs = go (push ctx $ C [<'\a']) xs
-  go ctx $ '\\'::'\\' :: xs = go (push ctx $ C [<'\\']) xs
+  go ctx $ '\\'::'n' :: xs = go (push ctx $ C [<'\n']) xs
+  go ctx $ '\\'::'r' :: xs = go (push ctx $ C [<'\r']) xs
+  go ctx $ '\\'::'t' :: xs = go (push ctx $ C [<'\t']) xs
+  go ctx $ '\\'::'f' :: xs = go (push ctx $ C [<'\f']) xs
+  go ctx $ '\\'::'v' :: xs = go (push ctx $ C [<'\v']) xs
+  go ctx $ '\\'::'0' :: xs = go (push ctx $ C [<'\0']) xs
+  go ctx $ '\\'::'a' :: xs = go (push ctx $ C [<'\a']) xs
+  go ctx $ '\\'::'\\':: xs = go (push ctx $ C [<'\\']) xs
+  go ctx $ '\\'::'x'::'{' :: xs = do let (hexes, rest) = span (/= '}') xs
+                                     let '}' :: rest = rest | _ => Left $ RegexIsBad (pos xs `minus` 1) "unmatched opening curly bracket"
+                                     let True = length hexes <= 8 | False => Left $ RegexIsBad (pos xs) "we expect no more than a 32-bit hex number"
+                                     n <- parseNat 16 (pos xs) hexes
+                                     go (push ctx $ C [< chr $ cast n]) $ assert_smaller xs rest
+  go ctx $ '\\'::'x'::ulxs@(u::l :: xs) = parseNat 16 (pos ulxs) [u,l] >>= \n => go (push ctx $ C [< chr $ cast n]) xs
+  go ctx xxs@('\\'::'x':: xs) = Left $ RegexIsBad (pos xxs) "bad hex character command, use formats \xFF or \x{FFF...}"
   go ctx $ '\\'::xxs@(x::_) = Left $ RegexIsBad (pos xxs) "unknown quote character '\\\{show x}'"
   go ctx $ x :: xs = go (push ctx $ C [<x]) xs
 
