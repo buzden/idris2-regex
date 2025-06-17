@@ -129,10 +129,11 @@ parseDigit base@(S _) c = do
   let tofin = \n => fromMaybe FZ {- must never happen -} $ integerToFin (cast n) base
   let ord0 = ord '0'
   let ordA = ord 'a'
+  let c = if isUpper c then chr (ord c - ord 'A' + ordA) else c
   let pred = if base <= 10
                then let upDig = chr $ ord0 + cast base              in '0' <= c && c <= upDig
                else let upLet = chr $ ordA + cast (base `minus` 10) in '0' <= c && c <= '9' || 'a' <= c && c <= upLet
-  whenT pred $ tofin $ ord c - if c <= '9' then ord0 else ordA
+  whenT pred $ tofin $ if c <= '9' then ord c - ord0 else ord c - ordA + 10
 
 ||| A digit of given base
 export
