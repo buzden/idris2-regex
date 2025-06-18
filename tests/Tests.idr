@@ -7,4 +7,5 @@ main = goldenRunner
   [ "Documentation" `atDir` "docs"
   , "Raw matcher"   `atDir` "raw-matcher"
   , "Lexer"         `atDir` "lexer"
+  , "Printer"       `atDir` "printer"
   ]

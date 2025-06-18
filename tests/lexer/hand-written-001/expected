@@ -1,0 +1,4 @@
+1/1: Building Text.Regex.Parser.ERE.Test (Text/Regex/Parser/ERE/Test.idr)
+Text.Regex.Parser.ERE.Test> Right [<SOL, Post (Group False [<Post (Post (Cs False [Range 'a' 'c', One '-', One 'd']) (RepN_ 4)) Opt, Cs True [Class True Digit, One 'a', One 'b', One 'O', One 'O']]) Rep1, Post (Post AnyC Rep0) Rep1, C [<'f', 'e', 'v', 'O'], Post (C [<'O']) Rep1]
+Text.Regex.Parser.ERE.Test> 
+Bye for now!

@@ -14,6 +14,8 @@ modules = Text.Matcher
         , Text.Regex.Naive
         , Text.Regex.Parser
         , Text.Regex.Parser.ERE
+        , Text.Regex.Printer
 
 depends = best-alternative
+        , elab-util
         , i-hate-parens

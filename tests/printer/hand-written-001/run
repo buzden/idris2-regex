@@ -1,0 +1,6 @@
+rm -rf build
+
+flock "$1" pack -q install-deps test.ipkg
+idris2 --no-color --console-width 0 --no-banner --find-ipkg Text/Regex/Printer/Test.idr < input
+
+rm -rf build

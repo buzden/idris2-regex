@@ -1,0 +1,4 @@
+1/1: Building Text.Regex.Printer.Test (Text/Regex/Printer/Test.idr)
+Text.Regex.Printer.Test> "cba|(?:abc)?|asf|bdf|k?(?:a|b)z|(?:$_^|w)(?:$_^|v)?k"
+Text.Regex.Printer.Test> 
+Bye for now!
