@@ -39,6 +39,37 @@ Alternative RegExpText where
   empty = RET Alt "$_^"
   l <|> r = RET Alt "\{tostr Alt l}|\{tostr Alt r}"
 
+toHex : Int -> String
+toHex = pack . go [] where
+  ord0, ordA : Int
+  ord0 = ord '0'
+  ordA = ord 'A'
+  go : List Char -> Int -> List Char
+  go acc n = do
+    let n' = n `div` 16
+    let r = n `mod` 16
+    let c = chr $ r + if r < 10 then ord0 else ordA
+    let acc = c :: acc
+    if n' > 0 then go acc $ assert_smaller n n' else acc
+
+printChar : Char -> String
+printChar '\n' = #"\n"#
+printChar '\r' = #"\r"#
+printChar '\t' = #"\t"#
+printChar '\f' = #"\f"#
+printChar '\v' = #"\v"#
+printChar '\a' = #"\a"#
+printChar '\\' = #"\\"#
+printChar c = let ordC = ord c in
+  if 0x20 <= ordC && ordC <= 0x7E then singleton c
+    else if ordC <= 0xFF then "\\x\{toHex $ ordC `div` 16}\{toHex $ ordC `mod` 16}"
+      else "\\x{\{toHex ordC}}"
+
+test127 : (Char -> Bool) -> Vect 127 Bool
+test127 f = allFins _ <&> f . chr . cast . finToNat
+
+searchClasses : List (String, Vect 127 Bool)
+
 export
 Regex RegExpText where
   sym' f = ?foo_sym
