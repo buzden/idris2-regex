@@ -93,6 +93,8 @@ parseNat base pos (x::xs) = do
     [] => pure acc
     _  => parseNat base {acc} (S pos) xs
 
+-- We treat `\` inside `[...]` more like PCRE rather than POSIX ERE.
+-- However, we do not *require* `\` itseld to be quoted, it is understood literally if does not form a special character.
 parseCharsSet : (startLen, origLen : Lazy Nat) -> (start : Bool) -> SnocList BracketChars -> List Char -> Either BadRegex (List Char, List BracketChars)
 parseCharsSet stL orL start curr [] = Left $ RegexIsBad stL "unmatched opening square bracket"
 parseCharsSet stL orL False curr (']' :: xs) = pure (xs, cast curr)

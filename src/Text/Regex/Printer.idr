@@ -68,8 +68,11 @@ printChar c = let ordC = ord c in
 test127 : (Char -> Bool) -> Vect 127 Bool
 test127 f = allFins _ <&> f . chr . cast . finToNat
 
-searchClasses : List (String, Vect 127 Bool)
-searchClasses = ?searchClasses_rhs
+-- sorted from big to small
+searchPosixClasses : List (String, Vect 127 Bool)
+searchPosixClasses = map @{Compose} (test127 . charClass) $
+  [ ("print", Print), ("graph", Graph), ("alnum", Alnum), ("alpha", Alpha), ("upper", Upper), ("lower", Lower)
+  , ("xdigit", XDigit), ("digit", Digit), ("punct", Punct) , ("cntrl", Cntrl), ("space", Space), ("blank", Blank) ]
 
 export
 Regex RegExpText where
