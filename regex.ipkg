@@ -17,5 +17,6 @@ modules = Text.Matcher
         , Text.Regex.Printer
 
 depends = best-alternative
+        , collection-utils
         , elab-util
         , i-hate-parens
