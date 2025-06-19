@@ -15,7 +15,7 @@ import Text.Regex.Interface
 %default total
 %language ElabReflection
 
-data OpPri = Alt | Conseq | Postfix
+data OpPri = Alt | Conseq | Postfix | Symbol
 
 %runElab derive `{OpPri} [Eq, Ord]
 
@@ -69,21 +69,22 @@ test127 : (Char -> Bool) -> Vect 127 Bool
 test127 f = allFins _ <&> f . chr . cast . finToNat
 
 searchClasses : List (String, Vect 127 Bool)
+searchClasses = ?searchClasses_rhs
 
 export
 Regex RegExpText where
   sym' f = ?foo_sym
 
-  char = RET Postfix . singleton
+  char = RET Symbol . singleton
 
-  anyChar = RET Postfix "."
-  sol     = RET Postfix "^"
-  eol     = RET Postfix "$"
+  anyChar = RET Symbol "."
+  sol     = RET Symbol "^"
+  eol     = RET Symbol "$"
 
-  wordBoundary True  True  = RET Postfix "\b"
-  wordBoundary True  False = RET Postfix "\<"
-  wordBoundary False True  = RET Postfix "\>"
-  wordBoundary False False = RET Postfix "\B"
+  wordBoundary True  True  = RET Symbol "\b"
+  wordBoundary True  False = RET Symbol "\<"
+  wordBoundary False True  = RET Symbol "\>"
+  wordBoundary False False = RET Symbol "\B"
 
   string = RET Conseq
 
