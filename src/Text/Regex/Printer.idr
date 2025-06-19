@@ -36,7 +36,7 @@ Applicative RegExpText where
 
 export
 Alternative RegExpText where
-  empty = RET Alt "$_^"
+  empty = RET Conseq "\b\B"
   l <|> r = RET Alt "\{tostr Alt l}|\{tostr Alt r}"
 
 toHex : Int -> String
