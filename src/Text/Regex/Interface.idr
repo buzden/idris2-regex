@@ -32,6 +32,8 @@ interface Alternative rx => Regex rx where
   ||| Matches the end of the line/text.
   eol : rx ()
 
+  -- TODO to add variants for matching start and end of text, but not a line
+
   ||| Zero-width boundary between a word-class char and a non-word class char or an edge.
   |||
   ||| For left or right boundary, set corresponding bool parameter to `True`,
