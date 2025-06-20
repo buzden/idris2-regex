@@ -164,7 +164,7 @@ parseRegex' = alts where
   conseq $ C [<c]         :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ char c
   conseq $ C cs           :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ string (pack $ cast cs)
   conseq $ WB l r         :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ wordBoundary l r
-  conseq $ Cs nonneg cs   :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ sym (\c => nonneg == all (matchesBracket c) cs)
+  conseq $ Cs nonneg cs   :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ bracketMatcher nonneg cs
   conseq $ Group False sx :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ (alts $ cast sx).snd
   conseq $ Group True  sx :: xs = (:: conseq xs) $ MkDPair 1 $ (::[]) <$> matchOf (alts $ cast sx).snd
   conseq $ SOL            :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ sol

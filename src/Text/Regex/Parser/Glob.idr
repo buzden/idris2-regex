@@ -1,6 +1,6 @@
 module Text.Regex.Parser.Glob
 
-import public Data.DPair
+import Data.List
 
 import public Text.Regex.Interface
 import public Text.Regex.Parser
@@ -21,22 +21,31 @@ pushChar c (sx :< S cs) = sx :< S (cs :< c)
 pushChar c sx           = sx :< S (pure c)
 
 lexGlob : List Char -> Either BadRegex $ SnocList GlobLex
-lexGlob orig = go [<] orig where
-  orL : Nat
-  orL = length orig
-  pos : (left : List Char) -> Nat
-  pos xs = orL `minus` length xs
-  go : SnocList GlobLex -> List Char -> Either BadRegex $ SnocList GlobLex
-  go acc [] = pure acc
-  go acc ('\\'::x  :: xs) = go (pushChar x acc) xs
-  go acc ('?'      :: xs) = go (acc :< AnyC) xs
-  go acc ('*'::'*' :: xs) = go (acc :< AnySS) xs
-  go acc ('*'      :: xs) = go (acc :< AnyS) xs
-  go acc xxs@('['::'!' :: xs) = parseCharsSet (pos xxs) orL True [<] xs >>= \(rest, cs) => go (acc :< Cs False cs) $ assert_smaller xs rest
-  go acc xxs@('['::'^' :: xs) = parseCharsSet (pos xxs) orL True [<] xs >>= \(rest, cs) => go (acc :< Cs False cs) $ assert_smaller xs rest
-  go acc xxs@('['      :: xs) = parseCharsSet (pos xxs) orL True [<] xs >>= \(rest, cs) => go (acc :< Cs True  cs) $ assert_smaller xs rest
-  go acc (x :: xs) = go (pushChar x acc) xs
+lexGlob orig with (length orig)
+  _ | orL = go [<] orig where
+    go : SnocList GlobLex -> List Char -> Either BadRegex $ SnocList GlobLex
+    go acc []               = pure acc
+    go acc ('\\'::x  :: xs) = go (pushChar x acc) xs
+    go acc ('?'      :: xs) = go (acc :< AnyC) xs
+    go acc ('*'::'*' :: xs) = go (acc :< AnySS) xs
+    go acc ('*'      :: xs) = go (acc :< AnyS) xs
+    go acc xxs@('['  :: xs) = do let uc = uncons' xs
+                                 let positive = let h = map fst uc in h /= Just '^' && h /= Just '!'
+                                 (rest, cs) <- parseCharsSet (orL `minus` length xxs) orL True [<] $ fromMaybe xs $ map snd uc
+                                 go (acc :< Cs positive cs) $ assert_smaller xs rest
+    go acc (x        :: xs) = go (pushChar x acc) xs
 
 export %inline
 parseGlob : Regex rx => String -> Either BadRegex $ rx String
---parseGlob = map (\r => matchOf r.snd) . parseGlob' . unpack
+parseGlob = map (composeRx []) . lexGlob . unpack where
+  nonDirChar : rx Char
+  nonDirChar = sym (/= '/')
+  composeRx : All rx tys -> SnocList GlobLex -> rx String
+  composeRx acc [<]             = matchOf $ all acc
+  composeRx acc (sx :< S [<])   = composeRx acc sx
+  composeRx acc (sx :< S [<c])  = composeRx (char c :: acc) sx
+  composeRx acc (sx :< S sc)    = composeRx (string (pack $ toList sc) :: acc) sx
+  composeRx acc (sx :< AnyC)    = composeRx (nonDirChar :: acc) sx
+  composeRx acc (sx :< AnyS)    = composeRx (rep nonDirChar :: acc) sx
+  composeRx acc (sx :< AnySS)   = composeRx (rep anyChar :: acc) sx
+  composeRx acc (sx :< Cs p cs) = composeRx (bracketMatcher p cs :: acc) sx

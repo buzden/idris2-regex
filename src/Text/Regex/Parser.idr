@@ -30,6 +30,10 @@ matchesBracket c $ One k       = c == k
 matchesBracket c $ Class nn cl = nn == charClass cl c
 matchesBracket c $ Range l r   = l <= c && c <= r
 
+%inline
+bracketMatcher : Regex rx => Foldable f => (positive : Bool) -> f BracketChars -> rx Char
+bracketMatcher p cs = sym (\c => p == any (matchesBracket c) cs)
+
 baseNumDescr : (base : Nat) -> String
 baseNumDescr 10 = "decimal"
 baseNumDescr 16 = "hexadecimal"
@@ -48,7 +52,7 @@ parseNat base pos (x::xs) = do
     _  => parseNat base {acc} (S pos) xs
 
 -- We treat `\` inside `[...]` more like PCRE rather than POSIX ERE.
--- However, we do not *require* `\` itseld to be quoted, it is understood literally if does not form a special character.
+-- However, we do not *require* `\` itself to be quoted, it is understood literally if does not form a special character.
 parseCharsSet : (startLen, origLen : Lazy Nat) -> (start : Bool) -> SnocList BracketChars -> List Char -> Either BadRegex (List Char, List BracketChars)
 parseCharsSet stL orL start curr [] = Left $ RegexIsBad stL "unmatched opening square bracket"
 parseCharsSet stL orL False curr (']' :: xs) = pure (xs, cast curr)
