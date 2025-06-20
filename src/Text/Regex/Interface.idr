@@ -6,11 +6,22 @@ import public Data.List.Quantifiers
 import public Data.List1
 import public Data.Vect
 
+import Deriving.Show
+
 %default total
+%language ElabReflection
 
 ----------------------
 --- Regex building ---
 ----------------------
+
+public export
+data EdgeSide = Start | End
+public export
+data EdgeType = Line | Text
+
+export %hint ShowEdgeSide : Show EdgeSide; ShowEdgeSide = %runElab derive
+export %hint ShowEdgeType : Show EdgeType; ShowEdgeType = %runElab derive
 
 public export
 interface Alternative rx => Regex rx where
@@ -27,12 +38,8 @@ interface Alternative rx => Regex rx where
   anyChar : rx Char
   anyChar = sym $ const True
 
-  ||| Matches the start of the line/text.
-  sol : rx ()
-  ||| Matches the end of the line/text.
-  eol : rx ()
-
-  -- TODO to add variants for matching start and end of text, but not a line
+  ||| Matches the start/end of the line/text.
+  edge : EdgeType -> EdgeSide -> rx ()
 
   ||| Zero-width boundary between a word-class char and a non-word class char or an edge.
   |||

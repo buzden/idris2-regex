@@ -106,8 +106,10 @@ Regex RegExpText where
   char = RET Symbol . singleton
 
   anyChar = RET Symbol "."
-  sol     = RET Symbol "^"
-  eol     = RET Symbol "$"
+  edge Line Start = RET Symbol "^"
+  edge Line End   = RET Symbol "$"
+  edge Text Start = RET Symbol "\A"
+  edge Text End   = RET Symbol "\Z"
 
   wordBoundary True  True  = RET Symbol "\b"
   wordBoundary True  False = RET Symbol "\<"

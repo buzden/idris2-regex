@@ -30,7 +30,7 @@ data Regex : Type -> Type where
 
   Rep1      : Regex a -> Regex $ List1 a
 
-  Bound     : (start : Bool) -> Regex ()
+  Edge      : EdgeType -> EdgeSide -> Regex ()
   Sym       : (Char -> Bool) -> Regex Char
 
 %name Naive.Regex r, rx
@@ -59,7 +59,7 @@ export
   showPrec d $ Sel rs      = showCon d "Sel" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
   showPrec d $ WithMatch r = showCon d "WithMatch" $ showArg r
   showPrec d $ Rep1 r      = showCon d "Rep1" $ showArg r
-  showPrec d $ Bound start = showCon d "Bound" $ showArg start
+  showPrec d $ Edge t s    = showCon d "Edge" $ showArg t ++ showArg s
   showPrec d $ Sym f       = showCon d "Sym" " <fun>"
 
 -------------------
@@ -85,30 +85,34 @@ filterNothings xs = case filter (isJust . fst) xs of [] => xs; xs' => xs'
 --- Return the index after which the unmatched rest is
 export
 rawMatch : Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-rawMatch = go True where
+rawMatch r orig = go True r orig where
   go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-  go atStart (Map f r)      cs      = map @{Compose} f $ go atStart r cs
-  go atStart (Seq [])       cs      = pure (Nothing, [])
-  go atStart (Seq $ r::rs)  cs      = filterNothings $ go atStart r cs >>= \(idx, x) => do
-                                        let (ds ** f) = precDrop cs $ fromMaybe FZ idx
-                                        let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
-                                            convIdx $ Just i = Just $ f i
-                                            convIdx Nothing  = idx $> f FZ
-                                        filterNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
-  go atStart (Sel rs)       cs      = filterNothings $ lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
-  go atStart (WithMatch rs) cs      = go atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
-  go atStart rr@(Rep1 r)    cs      = filterNothings $ do
-                                        (Just idx@(FS _), x) <- go atStart r cs | (idx, x) => pure (idx, singleton x)
-                                        let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
-                                        case filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds) of
-                                          [] => pure (Just idx, singleton x)
-                                          xs => xs
-  go _       (Bound False)  []      = pure (Just FZ, ())
-  go _       (Bound False)  cs      = empty
-  go True    (Bound True)   cs      = pure (Just FZ, ())
-  go False   (Bound True)   cs      = empty
-  go _       (Sym _)        []      = empty
-  go _       (Sym f)        (c::cs) = whenT (f c) (Just 1, c)
+  go atStart (Map f r)         cs      = map @{Compose} f $ go atStart r cs
+  go atStart (Seq [])          cs      = pure (Nothing, [])
+  go atStart (Seq $ r::rs)     cs      = filterNothings $ go atStart r cs >>= \(idx, x) => do
+                                           let (ds ** f) = precDrop cs $ fromMaybe FZ idx
+                                           let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
+                                               convIdx $ Just i = Just $ f i
+                                               convIdx Nothing  = idx $> f FZ
+                                           filterNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
+  go atStart (Sel rs)          cs      = filterNothings $ lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
+  go atStart (WithMatch rs)    cs      = go atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
+  go atStart rr@(Rep1 r)       cs      = filterNothings $ do
+                                           (Just idx@(FS _), x) <- go atStart r cs | (idx, x) => pure (idx, singleton x)
+                                           let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
+                                           case filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds) of
+                                             [] => pure (Just idx, singleton x)
+                                             xs => xs
+  go _       (Edge _    End)   []      = pure (Just FZ, ())
+  go _       (Edge Line End)   (c::cs) = if isNL c then pure (Just FZ, ()) else empty
+  go _       (Edge Text End)   cs      = empty
+  go True    (Edge _    Start) cs      = pure (Just FZ, ())
+  go False   (Edge Line Start) cs      = do let prevPos = length orig `minus` S (length cs) -- we know that `cs < orig` b/o `atStart` is `False`
+                                            let Yes _ = inBounds prevPos cs | No _ => empty
+                                            if isNL $ index prevPos cs then pure (Just FZ, ()) else empty
+  go False   (Edge Text Start) cs      = empty
+  go _       (Sym _)           []      = empty
+  go _       (Sym f)           (c::cs) = whenT (f c) (Just 1, c)
 
 lazySplits : List a -> LazyList (SnocList a, List a)
 lazySplits []          = pure ([<], [])
@@ -134,8 +138,7 @@ export
 Regex Naive.Regex where
   sym' = ?sym_m_impl
   sym = Sym
-  sol = Bound True
-  eol = Bound False
+  edge = Edge
   wordBoundary = ?wb_impl
   withMatch = map (mapFst pack) . WithMatch
   all = Seq
