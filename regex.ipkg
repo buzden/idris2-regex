@@ -2,7 +2,7 @@ package regex
 
 authors = "Denis Buzdalov"
 
-brief = "A simple regular expression library"
+brief = "Interfaces for building, matching, parsing and printing regular expressions with a naive implementation"
 
 license = "Apache-2.0"
 
