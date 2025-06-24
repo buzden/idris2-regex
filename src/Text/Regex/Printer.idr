@@ -110,7 +110,7 @@ Regex RegExpText where
   edge Line Start = RET Symbol "^"
   edge Line End   = RET Symbol "$"
   edge Text Start = RET Symbol "\A"
-  edge Text End   = RET Symbol "\Z"
+  edge Text End   = RET Symbol "\z"
 
   wordBoundary True  True  = RET Symbol "\b"
   wordBoundary True  False = RET Symbol "\<"

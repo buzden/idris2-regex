@@ -17,6 +17,14 @@ import public Text.Regex.Parser
 --- Lexing ---
 --------------
 
+data NLType =
+  ||| \N, i.e. [^\n\r]
+  NonNL |
+  ||| \R, i.e. (?:\x0d\x0a|\n|\r|\v)
+  Generic |
+  ||| \Z, i.e. (?:\R?\z)
+  Final
+
 data PostfixOp : Type where
   Rep0  : PostfixOp -- *
   Rep1  : PostfixOp -- +
@@ -31,7 +39,8 @@ data RxLex
   | WB Bool Bool -- word boundary, left, right, both or non-boundary
   | Cs Bool (List BracketChars) -- [...] and [^...], bool `False` for `[^...]`
   | Group Bool (SnocList RxLex) -- (...) and (?:...), bool `True` for matching group
-  | Edge LineMode EdgeSide -- ^, $, \A, \Z
+  | Edge LineMode EdgeSide -- ^, $, \A, \z
+  | NL NLType -- \N, \R, \Z
   | AnyC LineMode -- ., \X
   | Alt -- |
   | Post RxLex PostfixOp
@@ -101,7 +110,10 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
                               go !(pushPostfix (pos xxs) ctx $ RepNM l r) $ assert_smaller xs rest
   go ctx $ '\\'::'X' :: xs = go (push ctx $ AnyC Text) xs
   go ctx $ '\\'::'A' :: xs = go (push ctx $ Edge Text Start) xs
-  go ctx $ '\\'::'Z' :: xs = go (push ctx $ Edge Text End) xs
+  go ctx $ '\\'::'z' :: xs = go (push ctx $ Edge Text End) xs
+  go ctx $ '\\'::'Z' :: xs = go (push ctx $ NL Final) xs
+  go ctx $ '\\'::'R' :: xs = go (push ctx $ NL Generic) xs
+  go ctx $ '\\'::'N' :: xs = go (push ctx $ NL NonNL) xs
   go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True [Class True  Word]) xs
   go ctx $ '\\'::'W' :: xs = go (push ctx $ Cs True [Class False Word]) xs
   go ctx $ '\\'::'s' :: xs = go (push ctx $ Cs True [Class True  Space]) xs
@@ -154,7 +166,7 @@ concatAll xs = let Evidence _ (rs, MkDPair _ (conv, _)) = crumple xs in (_ ** co
 -- - middle: sequencing
 -- - low: infix op: |
 parseRegex' : Regex rx => List RxLex -> Exists $ \n => rx $ Vect n String
-parseRegex' = alts where
+parseRegex' @{rxi} = alts where
   alts : List RxLex -> Exists $ \n => rx $ Vect n String
   conseq : List RxLex -> List (n ** rx $ Vect n String)
   alts lxs = do
@@ -169,6 +181,9 @@ parseRegex' = alts where
   conseq $ Group False sx :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ (alts $ cast sx).snd
   conseq $ Group True  sx :: xs = (:: conseq xs) $ MkDPair 1 $ (::[]) <$> matchOf (alts $ cast sx).snd
   conseq $ Edge t s       :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ edge t s
+  conseq $ NL NonNL       :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ sym (not . isNL)
+  conseq $ NL Generic     :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ genericNL
+  conseq $ NL Final       :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ all [optional genericNL, edge Text End]
   conseq $ AnyC m         :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ anyChar m
   conseq $ Post lx op     :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ (postfixOp op (alts [lx]).snd).snd
   conseq $ Alt            :: xs = (:: conseq xs) $ MkDPair _ $ pure [] -- should never happen, actually

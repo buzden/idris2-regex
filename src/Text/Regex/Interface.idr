@@ -108,6 +108,11 @@ export %inline
 between : Regex rx => Char -> Char -> rx Char
 between l r = sym $ \k => l <= k && k <= r
 
+||| Either "\r\n" or any of '\n', '\r' or '\v'
+export
+genericNL : Regex rx => rx String
+genericNL = string "\x0d\x0a" <|> map singleton (anyOf ['\n', '\r', '\v'])
+
 public export
 data CharClass
   = Alpha | Digit | XDigit | Alnum | Upper | Lower | Word
