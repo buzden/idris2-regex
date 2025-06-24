@@ -20,41 +20,41 @@ import public Text.Matcher
 ----------------------------------------
 
 export
-data Regex : Type -> Type where
-  Map       : (a -> b) -> Regex a -> Regex b
+data RegExp : Type -> Type where
+  Map       : (a -> b) -> RegExp a -> RegExp b
 
-  Seq       : All Regex tys -> Regex $ All Prelude.id tys -- empty list always matches
-  Sel       : All Regex tys -> Regex $ Any Prelude.id tys -- empty list never matches
+  Seq       : All RegExp tys -> RegExp $ All Prelude.id tys -- empty list always matches
+  Sel       : All RegExp tys -> RegExp $ Any Prelude.id tys -- empty list never matches
 
-  WordB     : (l, r : Bool) -> Regex ()
-  WithMatch : Regex a -> Regex (List Char, a)
+  WordB     : (l, r : Bool) -> RegExp ()
+  WithMatch : RegExp a -> RegExp (List Char, a)
 
-  Rep1      : Regex a -> Regex $ List1 a
+  Rep1      : RegExp a -> RegExp $ List1 a
 
-  Edge      : EdgeType -> EdgeSide -> Regex ()
-  Sym       : (Char -> Maybe a) -> Regex a
+  Edge      : EdgeType -> EdgeSide -> RegExp ()
+  Sym       : (Char -> Maybe a) -> RegExp a
 
-%name Naive.Regex r, rx
+%name RegExp r, rx
 
 public export
-Functor Regex where
+Functor RegExp where
   map f $ Map f' r = Map (f . f') r
   map f r          = Map f r
 
 -- TODO to implement `Seq` fusion (looking inside `Map` and `WithMatch` too)
 public export
-Applicative Regex where
+Applicative RegExp where
   pure x = Seq [] <&> const x
   x <*> y = Seq [x, y] <&> \[l, r] => l r
 
 -- TODO to implement `Sel` fusion (looking inside `Map` and `WithMatch` too)
 public export
-Alternative Naive.Regex where
+Alternative RegExp where
   empty = Sel [] <&> \case _ impossible
   x <|> y = Sel [x, y] <&> \case Here x => x; There (Here x) => x
 
 export
-[LowLevel] Show (Naive.Regex a) where
+[LowLevel] Show (RegExp a) where
   showPrec d $ Map f r     = showCon d "Map" $ " <fun>" ++ showArg r
   showPrec d $ Seq rs      = showCon d "Seq" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
   showPrec d $ Sel rs      = showCon d "Sel" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
@@ -91,7 +91,7 @@ whenJs (Just x) g = g x
 
 --- Return the index after which the unmatched rest is
 export
-rawMatch : Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+rawMatch : RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
 rawMatch r orig = go True r orig where
   prev : (curr : List Char) -> Maybe Char
   prev curr = do
@@ -101,7 +101,7 @@ rawMatch r orig = go True r orig where
     let prevPos = origL `minus` S currL
     let Yes _ = inBounds prevPos orig | No _ => Nothing
     Just $ index prevPos orig
-  go : forall a. Bool -> Regex a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+  go : forall a. Bool -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
   go atStart (Map f r)         cs      = map @{Compose} f $ go atStart r cs
   go atStart (Seq [])          cs      = pure (Nothing, [])
   go atStart (Seq $ r::rs)     cs      = filterNothings $ go atStart r cs >>= \(idx, x) => do
@@ -135,12 +135,12 @@ lazySplits []          = pure ([<], [])
 lazySplits xxs@(x::xs) = ([<], xxs) :: (mapFst (:< x) <$> lazySplits xs)
 
 export
-rawMatchIn : Regex a -> List Char -> LazyList (List Char, List Char, a, List Char)
+rawMatchIn : RegExp a -> List Char -> LazyList (List Char, List Char, a, List Char)
 rawMatchIn r cs = lazySplits cs >>= \(pre, cs) => rawMatch r cs <&> \(idx, x) =>
   let (mid, post) = splitAt (finToNat $ fromMaybe FZ idx) cs in (asList pre, mid, x, post)
 
 export
-rawMatchAll : Regex a -> List Char -> LazyList (List (List Char, List Char, a), List Char)
+rawMatchAll : RegExp a -> List Char -> LazyList (List (List Char, List Char, a), List Char)
 rawMatchAll r cs = case rawMatchIn r cs of
   [] => pure ([], cs)
   xs => xs >>= \(pre, ms, mx, post) => if null pre then pure ([(pre, ms, mx)], post) else
@@ -151,7 +151,7 @@ rawMatchAll r cs = case rawMatchIn r cs of
 ---------------------------------------
 
 export
-Regex Naive.Regex where
+Regex RegExp where
   sym' = Sym
   edge = Edge
   wordBoundary = WordB
@@ -161,7 +161,7 @@ Regex Naive.Regex where
   rep1 = Rep1
 
 export
-TextMatcher Regex where
+TextMatcher RegExp where
   matchWhole r str = do
     (idx, x) <- head' $ rawMatch r $ unpack str
     guard (fromMaybe FZ idx /= last) $> x
