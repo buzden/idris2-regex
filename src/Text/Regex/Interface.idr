@@ -17,11 +17,12 @@ import Deriving.Show
 
 public export
 data EdgeSide = Start | End
+||| `Line` line mode means "depends on the matching mode", `Text` means "literally, independent on matching mode".
 public export
-data EdgeType = Line | Text
+data LineMode = Line | Text
 
 export %hint ShowEdgeSide : Show EdgeSide; ShowEdgeSide = %runElab derive
-export %hint ShowEdgeType : Show EdgeType; ShowEdgeType = %runElab derive
+export %hint ShowLineMode : Show LineMode; ShowLineMode = %runElab derive
 
 public export
 interface Alternative rx => Regex rx where
@@ -34,12 +35,11 @@ interface Alternative rx => Regex rx where
   char : Char -> rx Char
   char = sym . (==)
 
-  ||| Matches any single char.
-  anyChar : rx Char
-  anyChar = sym $ const True
+  ||| Matches any single char in line (i.e. without newlines depending on the mode) or in text (i.e. literally any character).
+  anyChar : LineMode -> rx Char
 
   ||| Matches the start/end of the line/text.
-  edge : EdgeType -> EdgeSide -> rx ()
+  edge : LineMode -> EdgeSide -> rx ()
 
   ||| Zero-width boundary between a word-class char and a non-word class char or an edge.
   |||

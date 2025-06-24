@@ -105,7 +105,8 @@ Regex RegExpText where
   sym' = calcClass . test127 . (isJust .)
   char = RET Symbol . singleton
 
-  anyChar = RET Symbol "."
+  anyChar Line = RET Symbol "."
+  anyChar Text = RET Symbol "\X"
   edge Line Start = RET Symbol "^"
   edge Line End   = RET Symbol "$"
   edge Text Start = RET Symbol "\A"

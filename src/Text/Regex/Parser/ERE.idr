@@ -31,8 +31,8 @@ data RxLex
   | WB Bool Bool -- word boundary, left, right, both or non-boundary
   | Cs Bool (List BracketChars) -- [...] and [^...], bool `False` for `[^...]`
   | Group Bool (SnocList RxLex) -- (...) and (?:...), bool `True` for matching group
-  | Edge EdgeType EdgeSide -- ^, $, \A, \Z
-  | AnyC -- .
+  | Edge LineMode EdgeSide -- ^, $, \A, \Z
+  | AnyC LineMode -- ., \X
   | Alt -- |
   | Post RxLex PostfixOp
 
@@ -74,7 +74,7 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
   go : LexCtxt -> List Char -> Either BadRegex $ SnocList RxLex
   go (MkLexCtxt E curr)       [] = pure curr
   go (MkLexCtxt (G _ _ op) _) [] = Left $ RegexIsBad op "unmatched opening parenthesis"
-  go ctx $ '.' :: xs = go (push ctx AnyC) xs
+  go ctx $ '.' :: xs = go (push ctx $ AnyC Line) xs
   go ctx $ '^' :: xs = go (push ctx $ Edge Line Start) xs
   go ctx $ '$' :: xs = go (push ctx $ Edge Line End) xs
   go ctx $ '|' :: xs = go (push ctx Alt) xs
@@ -99,7 +99,7 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
                               r <- parseNat 10 (1 + posxs + length l) r; l <- parseNat 10 posxs l
                               let Yes lr = isLTE l r | No _ => Left $ RegexIsBad posxs "left bound must not be greater than right bound"
                               go !(pushPostfix (pos xxs) ctx $ RepNM l r) $ assert_smaller xs rest
-  go ctx $ '\\'::'X' :: xs = go (push ctx AnyC) xs
+  go ctx $ '\\'::'X' :: xs = go (push ctx $ AnyC Text) xs
   go ctx $ '\\'::'A' :: xs = go (push ctx $ Edge Text Start) xs
   go ctx $ '\\'::'Z' :: xs = go (push ctx $ Edge Text End) xs
   go ctx $ '\\'::'w' :: xs = go (push ctx $ Cs True [Class True  Word]) xs
@@ -169,7 +169,7 @@ parseRegex' = alts where
   conseq $ Group False sx :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ (alts $ cast sx).snd
   conseq $ Group True  sx :: xs = (:: conseq xs) $ MkDPair 1 $ (::[]) <$> matchOf (alts $ cast sx).snd
   conseq $ Edge t s       :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ edge t s
-  conseq $ AnyC           :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ anyChar
+  conseq $ AnyC m         :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ anyChar m
   conseq $ Post lx op     :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ (postfixOp op (alts [lx]).snd).snd
   conseq $ Alt            :: xs = (:: conseq xs) $ MkDPair _ $ pure [] -- should never happen, actually
 

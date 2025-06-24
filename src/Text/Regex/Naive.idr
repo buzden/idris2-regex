@@ -31,7 +31,8 @@ data RegExp : Type -> Type where
 
   Rep1      : RegExp a -> RegExp $ List1 a
 
-  Edge      : EdgeType -> EdgeSide -> RegExp ()
+  Edge      : LineMode -> EdgeSide -> RegExp ()
+  AnyChar   : LineMode -> RegExp Char
   Sym       : (Char -> Maybe a) -> RegExp a
 
 %name RegExp r, rx
@@ -62,6 +63,7 @@ export
   showPrec d $ WithMatch r = showCon d "WithMatch" $ showArg r
   showPrec d $ Rep1 r      = showCon d "Rep1" $ showArg r
   showPrec d $ Edge t s    = showCon d "Edge" $ showArg t ++ showArg s
+  showPrec d $ AnyChar m   = showCon d "AnyChar" $ showArg m
   showPrec d $ Sym f       = showCon d "Sym" " <fun>"
 
 -------------------
@@ -84,10 +86,9 @@ hasntMove (Just $ FS _) = False
 filterNothings : LazyList (Maybe a, b) -> LazyList (Maybe a, b)
 filterNothings xs = case filter (isJust . fst) xs of [] => xs; xs' => xs'
 
--- TODO to be removed after appropriate `pack switch latest`
-whenJs : Alternative f => Maybe a -> (a -> f b) -> f b
-whenJs Nothing  _ = empty
-whenJs (Just x) g = g x
+isText : LineMode -> Bool
+isText Text = True
+isText Line = False
 
 --- Return the index after which the unmatched rest is
 export
@@ -127,6 +128,8 @@ rawMatch r orig = go beginning r orig where
   go True    (Edge _    Start) cs      = pure (Just FZ, ())
   go False   (Edge Line Start) cs      = whenJs (prev cs) $ \c => whenT (isNL c) (Just Fin.FZ, ())
   go False   (Edge Text Start) cs      = empty
+  go _       (AnyChar m)       []      = empty
+  go _       (AnyChar m)       (c::cs) = whenT (isText m || not (isNL c)) (Just 1, c)
   go _       (Sym _)           []      = empty
   go _       (Sym f)           (c::cs) = fromList $ toList $ (Just 1,) <$> f c
 
@@ -155,6 +158,7 @@ namespace Regex
   export
   [Naive] Regex RegExp where
     sym' = Sym
+    anyChar = AnyChar
     edge = Edge
     wordBoundary = WordB
     withMatch = map (mapFst pack) . WithMatch

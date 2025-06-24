@@ -47,5 +47,5 @@ parseGlob = map (composeRx []) . lexGlob . unpack where
   composeRx acc (sx :< S sc)    = composeRx (string (pack $ toList sc) :: acc) sx
   composeRx acc (sx :< AnyC)    = composeRx (nonDirChar :: acc) sx
   composeRx acc (sx :< AnyS)    = composeRx (rep nonDirChar :: acc) sx
-  composeRx acc (sx :< AnySS)   = composeRx (rep anyChar :: acc) sx
+  composeRx acc (sx :< AnySS)   = composeRx (rep (anyChar Text) :: acc) sx
   composeRx acc (sx :< Cs p cs) = composeRx (bracketMatcher p cs :: acc) sx
