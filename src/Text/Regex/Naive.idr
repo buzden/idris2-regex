@@ -91,8 +91,8 @@ whenJs (Just x) g = g x
 
 --- Return the index after which the unmatched rest is
 export
-rawMatch : RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-rawMatch r orig = go True r orig where
+rawMatch : {default True beginning : Bool} -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+rawMatch r orig = go beginning r orig where
   prev : (curr : List Char) -> Maybe Char
   prev curr = do
     let origL = length orig
@@ -136,7 +136,7 @@ lazySplits xxs@(x::xs) = ([<], xxs) :: (mapFst (:< x) <$> lazySplits xs)
 
 export
 rawMatchIn : RegExp a -> List Char -> LazyList (List Char, List Char, a, List Char)
-rawMatchIn r cs = lazySplits cs >>= \(pre, cs) => rawMatch r cs <&> \(idx, x) =>
+rawMatchIn r cs = lazySplits cs >>= \(pre, cs) => rawMatch {beginning=null pre} r cs <&> \(idx, x) =>
   let (mid, post) = splitAt (finToNat $ fromMaybe FZ idx) cs in (asList pre, mid, x, post)
 
 export
