@@ -150,22 +150,30 @@ rawMatchAll r cs = case rawMatchIn r cs of
 --- Implementation of the interface ---
 ---------------------------------------
 
-export
-Regex RegExp where
-  sym' = Sym
-  edge = Edge
-  wordBoundary = WordB
-  withMatch = map (mapFst pack) . WithMatch
-  all = Seq
-  exists = Sel
-  rep1 = Rep1
+namespace Regex
 
-export
-TextMatcher RegExp where
-  matchWhole r str = do
-    (idx, x) <- head' $ rawMatch r $ unpack str
-    guard (fromMaybe FZ idx /= last) $> x
-  matchInside r str = head' (rawMatchIn r $ unpack str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
-  matchAll r str = maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll r $ unpack str where
-    conv : List (List Char, List Char, a) -> (end : List Char) -> AllMatchedInside a
-    conv stmids end = foldl (\ami, (pre, ms, mx) => Match (pack pre) (pack ms) mx ami) (Stop $ pack end) stmids
+  export
+  [Naive] Regex RegExp where
+    sym' = Sym
+    edge = Edge
+    wordBoundary = WordB
+    withMatch = map (mapFst pack) . WithMatch
+    all = Seq
+    exists = Sel
+    rep1 = Rep1
+
+  public export %hint RegexRegExp : Regex RegExp; RegexRegExp = Naive
+
+namespace Matcher
+
+  export
+  [Naive] TextMatcher RegExp where
+    matchWhole r str = do
+      (idx, x) <- head' $ rawMatch r $ unpack str
+      guard (fromMaybe FZ idx /= last) $> x
+    matchInside r str = head' (rawMatchIn r $ unpack str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
+    matchAll r str = maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll r $ unpack str where
+      conv : List (List Char, List Char, a) -> (end : List Char) -> AllMatchedInside a
+      conv stmids end = foldl (\ami, (pre, ms, mx) => Match (pack pre) (pack ms) mx ami) (Stop $ pack end) stmids
+
+  public export %hint TextMatcherRegExp : TextMatcher RegExp; TextMatcherRegExp = Naive

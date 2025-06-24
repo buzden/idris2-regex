@@ -16,6 +16,10 @@ record OneMatchInside a where
   matchedVal    : a
   unmatchedPost : String
 
+export
+forgetVal : OneMatchInside a -> (String, String, String)
+forgetVal $ MkOneMatchInside pre str _ post = (pre, str, post)
+
 public export
 data AllMatchedInside : Type -> Type where
   Stop  : (post : String) -> AllMatchedInside a

@@ -10,6 +10,7 @@ sourcedir = "src"
 builddir = ".build"
 
 modules = Text.Matcher
+        , Text.Regex
         , Text.Regex.Interface
         , Text.Regex.Naive
         , Text.Regex.Parser
