@@ -1,0 +1,4 @@
+Multiline: True
+Just ("m", ("ama", "\namam"))
+Multiline: False
+Just ("mama\n", ("amam", ""))

@@ -26,7 +26,7 @@
   - input string: "abb":
     - (Just 2, ['a', 'b'])
 
-- regex: Bound False
+- regex: Edge Line End
 
   - input string: "":
     - (Just 0, ())
@@ -34,7 +34,7 @@
   - input string: "abc":
       <none>
 
-- regex: Bound True
+- regex: Edge Line Start
 
   - input string: "":
     - (Just 0, ())

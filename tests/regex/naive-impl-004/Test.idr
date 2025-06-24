@@ -1,0 +1,92 @@
+module Test
+
+import Text.Regex
+
+import Hedgehog
+
+import System
+import System.File
+
+%default total
+
+data MatchType = Inside | Whole | All
+
+Interpolation MatchType where
+  interpolate Inside = "inside"
+  interpolate Whole  = "whole"
+  interpolate All    = "all"
+
+multi : Bool -> String
+multi True  = "multiline"
+multi False = "single-line"
+
+--rx : RegExp ?
+--rx = #"^(?:[^a-c-d]{,4}?[[:digit:]ab\x4F\x{004f}])+.*+fev\x4F\x{0000000000004F}+"#.erx
+
+delimOutput : Eq a => (delim : List a) -> (n : Nat) -> List a -> Maybe $ Vect n $ List a
+delimOutput delim 0 str = Nothing
+delimOutput delim 1 str = Just [str]
+delimOutput delim (S k) str = do
+  (l, _, r) <- infixOfBy (flip whenT () .: (==)) delim str
+  (l ::) <$> delimOutput delim k r
+
+theDelim : List Char
+theDelim = ['\n'] ++ concat (List.replicate 20 $ unpack "-=~") ++ ['\n']
+
+covering
+matchPerl : (regex, str : String) -> Maybe (String, String, String)
+matchPerl regex str = do
+  let input = """
+    $input = \{if null str then "\"\"" else "q\x01\{str}\x01"};
+    if ($input =~ /(.*?)(\{regex})/) {
+      $post = substr($input, length($1)+length($2));
+      $del = "\\n".("-=~"x20)."\\n";
+      print "$1$del$2$del$post";
+    } else {
+      print "no match\\n";
+    }
+    """
+  output <- unsafePerformIO $ do
+    --ignore $ fPutStr stderr "\n----\n\{input}\n----\n"
+    Right sp <- popen2 "perl" | Left _ => pure Nothing
+    Right () <- fPutStr sp.input input | Left _ => pure Nothing
+    closeFile sp.input
+    Right output <- fRead sp.output | Left _ => pure Nothing
+    closeFile sp.output
+    exitCode <- popen2Wait sp
+    pure $ whenT (exitCode == 0) output
+  delimOutput theDelim 3 (unpack output) <&> map pack <&> \[a, b, c] => (a, b, c)
+
+matchNaive : (regex, str : String) -> Maybe (String, String, String)
+matchNaive regex str = do
+  let Right (Evidence _ r) = parseRegex regex | Left _ => Nothing
+  forgetVal <$> matchInside r str
+
+covering
+naiveMatchesPerl : (regex : String) -> Property
+naiveMatchesPerl regex = property $ do
+  str <- forAll $ string (constant 0 100) (char $ constant ' ' '\x7D')
+  let mp = matchPerl regex str
+  let mn = matchNaive regex str
+  classify "perl matched" $ isJust mp
+  classify "perl didn't match" $ mp == Nothing
+  classify "naive matched" $ isJust mn
+  classify "naive didn't match" $ mn == Nothing
+  mp === mn
+
+covering
+main : IO ()
+main = test
+  [ "patricular regular expression" `MkGroup`
+    [ ( "one particular simple expression, inside, single-line"
+      , naiveMatchesPerl #"[abc]+(a|b|c)"#
+      )
+    , ( "one particular long expression, inside, single-line"
+      , naiveMatchesPerl #"^(?:[^a-c-d]{,4}?[[:digit:]ab\x4F\x{004f}])+.*+fev\x4F\x{0000000000004F}+"#
+      )
+    ]
+-- ++ [ (fromString "match \{matchType} \{multi multiline}", ?asdffoo matchType multiline)
+--      | matchType <- [Inside, Whole, All]
+--      , multiline <- [False, True]
+--    ]
+  ]

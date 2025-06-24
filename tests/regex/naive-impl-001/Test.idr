@@ -10,12 +10,12 @@ record TestCase where
   constructor T
   {0 tcty : Type}
   {auto showTy : Show tcty}
-  regex : Regex tcty
+  regex : RegExp tcty
   inputs : LazyList String
 
 printAll : {0 res : _} ->
            (forall s, t. Show t => Show $ res s t) =>
-           (forall ty. Regex ty -> (s : String) -> LazyList $ res s ty) ->
+           (forall ty. RegExp ty -> (s : String) -> LazyList $ res s ty) ->
            LazyList TestCase ->
            IO ()
 printAll sut = Lazy.traverse_ $ \(T {regex, inputs, _}) => do
@@ -27,24 +27,24 @@ printAll sut = Lazy.traverse_ $ \(T {regex, inputs, _}) => do
     Lazy.for_ result $
       putStrLn . ("    - " ++) . show
 
-ab : Regex $ HList [Char, Char]
+ab : RegExp $ HList [Char, Char]
 ab = all [char 'a', char 'b']
 
-a_b : Regex (List Char, Char)
+a_b : RegExp (List Char, Char)
 a_b = [| (rep (char 'a'), char 'b') |]
 
-abc : Regex String
+abc : RegExp String
 abc = string "abc"
 
 main : IO ()
-main = printAll (\r, s => rawMatch r $ unpack s)
+main = printAll (\r, s => rawMatch False r $ unpack s)
   [ T (char 'a') ["a", "ab"]
   , T (all [char 'a']) ["a", "ab"]
 
   , T ab ["ab", "aba", "abb"]
 
-  , T eol ["", "abc"]
-  , T sol ["", "abc"]
+  , T (edge Line End) ["", "abc"]
+  , T (edge Line Start) ["", "abc"]
 
   , T abc ["0abc1", "abc1", "bc1", "0abc", "0ab"]
 
