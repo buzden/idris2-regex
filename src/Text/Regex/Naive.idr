@@ -92,8 +92,8 @@ isText Line = False
 
 --- Return the index after which the unmatched rest is
 export
-rawMatch : {default True beginning : Bool} -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-rawMatch r orig = go beginning r orig where
+rawMatch : {default True beginning : Bool} -> (multiline : Bool) -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+rawMatch multiline r orig = go beginning r orig where
   prev : (curr : List Char) -> Maybe Char
   prev curr = do
     let origL = length orig
@@ -123,13 +123,13 @@ rawMatch r orig = go beginning r orig where
                                              [] => pure (Just idx, singleton x)
                                              xs => xs
   go _       (Edge _    End)   []      = pure (Just FZ, ())
-  go _       (Edge Line End)   (c::cs) = if isNL c then pure (Just FZ, ()) else empty
+  go _       (Edge Line End)   (c::cs) = whenT (multiline && isNL c) (Just FZ, ())
   go _       (Edge Text End)   cs      = empty
   go True    (Edge _    Start) cs      = pure (Just FZ, ())
-  go False   (Edge Line Start) cs      = whenJs (prev cs) $ \c => whenT (isNL c) (Just Fin.FZ, ())
+  go False   (Edge Line Start) cs      = whenTs multiline $ whenJs (prev cs) $ flip whenT (Just FZ, ()) . isNL
   go False   (Edge Text Start) cs      = empty
   go _       (AnyChar m)       []      = empty
-  go _       (AnyChar m)       (c::cs) = whenT (isText m || not (isNL c)) (Just 1, c)
+  go _       (AnyChar m)       (c::cs) = whenT (multiline && isText m || not (isNL c)) (Just 1, c)
   go _       (Sym _)           []      = empty
   go _       (Sym f)           (c::cs) = fromList $ toList $ (Just 1,) <$> f c
 
@@ -138,16 +138,16 @@ lazySplits []          = pure ([<], [])
 lazySplits xxs@(x::xs) = ([<], xxs) :: (mapFst (:< x) <$> lazySplits xs)
 
 export
-rawMatchIn : RegExp a -> List Char -> LazyList (List Char, List Char, a, List Char)
-rawMatchIn r cs = lazySplits cs >>= \(pre, cs) => rawMatch {beginning=null pre} r cs <&> \(idx, x) =>
+rawMatchIn : (multiline : Bool) -> RegExp a -> List Char -> LazyList (List Char, List Char, a, List Char)
+rawMatchIn multiline r cs = lazySplits cs >>= \(pre, cs) => rawMatch {beginning=null pre} multiline r cs <&> \(idx, x) =>
   let (mid, post) = splitAt (finToNat $ fromMaybe FZ idx) cs in (asList pre, mid, x, post)
 
 export
-rawMatchAll : RegExp a -> List Char -> LazyList (List (List Char, List Char, a), List Char)
-rawMatchAll r cs = case rawMatchIn r cs of
+rawMatchAll : (multiline : Bool) -> RegExp a -> List Char -> LazyList (List (List Char, List Char, a), List Char)
+rawMatchAll multiline r cs = case rawMatchIn multiline r cs of
   [] => pure ([], cs)
   xs => xs >>= \(pre, ms, mx, post) => if null pre then pure ([(pre, ms, mx)], post) else
-    rawMatchAll r (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::)
+    rawMatchAll multiline r (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::)
 
 ---------------------------------------
 --- Implementation of the interface ---
@@ -172,11 +172,12 @@ namespace Matcher
 
   export
   [Naive] TextMatcher RegExp where
-    matchWhole r str = do
-      (idx, x) <- head' $ rawMatch r $ unpack str
+    matchWhole' multiline r str = do
+      (idx, x) <- head' $ rawMatch multiline r $ unpack str
       guard (fromMaybe FZ idx /= last) $> x
-    matchInside r str = head' (rawMatchIn r $ unpack str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
-    matchAll r str = maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll r $ unpack str where
+    matchInside' multiline r str =
+      head' (rawMatchIn multiline r $ unpack str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
+    matchAll' multiline r str = maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll multiline r $ unpack str where
       conv : List (List Char, List Char, a) -> (end : List Char) -> AllMatchedInside a
       conv stmids end = foldl (\ami, (pre, ms, mx) => Match (pack pre) (pack ms) mx ami) (Stop $ pack end) stmids
 

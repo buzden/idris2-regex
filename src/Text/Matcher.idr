@@ -46,20 +46,29 @@ matchesOnly $ Match _ matched _ cont = matched :: matchesOnly cont
 
 public export
 interface TextMatcher tm where
-  matchWhole  : tm a -> String -> Maybe a
+  matchWhole'  : (multiline : Bool) -> tm a -> String -> Maybe a
   -- Invariant that must hold is that `unmatchedPre ++ matchedStr ++ unmatchedPost` must be equal to the original string
-  matchInside : tm a -> String -> Maybe $ OneMatchInside a
-  matchAll    : tm a -> String -> AllMatchedInside a
+  matchInside' : (multiline : Bool) -> tm a -> String -> Maybe $ OneMatchInside a
+  matchAll'    : (multiline : Bool) -> tm a -> String -> AllMatchedInside a
 
-  matchWhole m str = matchInside m str >>= \case
+  matchWhole' multiline m str = matchInside' multiline m str >>= \case
     MkOneMatchInside "" _ val "" => Just val
     _                            => Nothing
-  matchAll m str = do
-    let Just $ MkOneMatchInside pre match val post = matchInside m str | Nothing => Stop str
+  matchAll' multiline m str = do
+    let Just $ MkOneMatchInside pre match val post = matchInside' multiline m str | Nothing => Stop str
     if length post < length str
-      then Match pre match val $ matchAll m $ assert_smaller str post
+      then Match pre match val $ matchAll' multiline m $ assert_smaller str post
       else case strUncons str of
              Nothing => Match pre match val $ Stop post
-             Just (k, str') => case matchAll m $ assert_smaller str str' of
+             Just (k, str') => case matchAll' multiline m $ assert_smaller str str' of
                Stop post' => Match pre match val $ Stop $ strCons k post'
                Match pre' match' val' cont' => Match pre match val $ Match (strCons k pre') match' val' cont'
+
+-- The following functions are a workaround of current inability of interfaces to hold functions with `default` arguments.
+
+public export %inline
+matchWhole  : {default False multiline : Bool} -> TextMatcher tm => tm a -> String -> Maybe a                  ; matchWhole  = matchWhole' multiline
+public export %inline
+matchInside : {default False multiline : Bool} -> TextMatcher tm => tm a -> String -> Maybe $ OneMatchInside a ; matchInside = matchInside' multiline
+public export %inline
+matchAll    : {default False multiline : Bool} -> TextMatcher tm => tm a -> String -> AllMatchedInside a       ; matchAll    = matchAll' multiline
