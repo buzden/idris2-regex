@@ -1,4 +1,20 @@
-Multiline: True
-Just ("m", ("ama", "\namam"))
-Multiline: False
-Just ("mama\n", ("amam", ""))
+
+- regex: a(?:.)*$
+
+  - input string: "mama\namam":
+
+    - multiline mode:
+      Just ("m", ("ama", "\namam"))
+
+    - single-line mode:
+      Just ("mama\n", ("amam", ""))
+
+- regex: (?:[abc])+(?:a|b|c)
+
+  - input string: "aa":
+
+    - multiline mode:
+      Nothing
+
+    - single-line mode:
+      Nothing
