@@ -1,6 +1,7 @@
 module Test
 
 import Text.Regex.Naive
+import Text.Regex.Printer
 
 import Language.Reflection
 
@@ -10,7 +11,7 @@ record TestCase where
   constructor T
   {0 tcty : Type}
   {auto showTy : Show tcty}
-  regex : RegExp tcty
+  regex : forall rx. Regex rx => rx tcty
   inputs : LazyList String
 
 printAll : {0 res : _} ->
@@ -19,7 +20,7 @@ printAll : {0 res : _} ->
            LazyList TestCase ->
            IO ()
 printAll sut = Lazy.traverse_ $ \(T {regex, inputs, _}) => do
-  putStrLn "\n- regex: \{show @{LowLevel} regex}"
+  putStrLn "\n- regex: \{regex {rx=RegExpText}}"
   Lazy.for_ inputs $ \input => do
     putStrLn "\n  - input string: \"\{input}\":"
     let result@(_::_) = sut regex input
@@ -27,13 +28,13 @@ printAll sut = Lazy.traverse_ $ \(T {regex, inputs, _}) => do
     Lazy.for_ result $
       putStrLn . ("    - " ++) . show
 
-ab : RegExp $ HList [Char, Char]
+ab : Regex rx => rx $ HList [Char, Char]
 ab = all [char 'a', char 'b']
 
-a_b : RegExp (List Char, Char)
+a_b : Regex rx => rx (List Char, Char)
 a_b = [| (rep (char 'a'), char 'b') |]
 
-abc : RegExp String
+abc : Regex rx => rx String
 abc = string "abc"
 
 main : IO ()
@@ -50,7 +51,7 @@ main = printAll (\r, s => rawMatch False r $ unpack s)
 
   , T a_b ["aaab", "aab", "ab", "b", ""]
 
-  , T (let x = exists [exists [char 'a', pure ()], char 'b'] in all [x, x]) ["abab", "baba"]
+  , T (let x : (forall rx. Regex rx => rx ?) := exists [exists [char 'a', pure ()], char 'b'] in all [x, x]) ["abab", "baba"]
 
   , T (rep ab) ["aabab", "abab", "aba", "ab", "b", ""]
 
