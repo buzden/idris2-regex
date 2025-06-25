@@ -26,14 +26,22 @@ data RegExpText a = RET OpPri String
 tostr : (context : OpPri) -> RegExpText a -> String
 tostr outer $ RET inner s = if outer > inner then "(?:\{s})" else s
 
+Cast (RegExpText a) (RegExpText b) where
+  cast $ RET p s = RET p s
+
 export
 Functor RegExpText where
-  map _ $ RET p s = RET p s
+  map _ = cast
 
 export
 Applicative RegExpText where
   pure _ = RET Conseq ""
-  l <*> r = RET Conseq $ tostr Conseq l <+> tostr Conseq r
+  l@(RET pl l') <*> r@(RET pr r') = do
+    let sl = tostr Conseq l
+    let sr = tostr Conseq r
+    if null sl then cast r else
+      if null sr then cast l else
+        RET Conseq $ sl <+> sr
 
 export
 Alternative RegExpText where
