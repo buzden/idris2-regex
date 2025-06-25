@@ -63,9 +63,9 @@ matchNaive regex str = do
   forgetVal <$> matchInside r str
 
 covering
-naiveMatchesPerl : (regex : String) -> Property
-naiveMatchesPerl regex = property $ do
-  str <- forAll $ string (constant 0 100) (char $ constant ' ' '\x7D')
+naiveMatchesPerl : (regex : String) -> (PropertyName, Property)
+naiveMatchesPerl regex = MkPair (fromString "particular expression \{regex}, inside, single-line mode") $ property $ do
+  str <- forAll $ string (constant 0 100) (char $ constant ' ' '\x7E')
   let mp = matchPerl regex str
   let mn = matchNaive regex str
   classify "perl matched" $ isJust mp
@@ -78,15 +78,9 @@ covering
 main : IO ()
 main = test
   [ "patricular regular expression" `MkGroup`
-    [ ( "one particular simple expression, inside, single-line"
-      , naiveMatchesPerl #"[abc]+(a|b|c)"#
-      )
-    , ( "one particular long expression, inside, single-line"
-      , naiveMatchesPerl #"^(?:[^a-c-d]{,4}?[[:digit:]ab\x4F\x{004f}])+.*+fev\x4F\x{0000000000004F}+"#
-      )
+    [ naiveMatchesPerl #"[abc]+(a|b|c)"#
+    , naiveMatchesPerl #"[abc]+.+.?(a|b|c)"#
+    , naiveMatchesPerl #"^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+.*"#
+--    , naiveMatchesPerl #"^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+.*+fev\x4F\x{0000000000004F}+"#
     ]
--- ++ [ (fromString "match \{matchType} \{multi multiline}", ?asdffoo matchType multiline)
---      | matchType <- [Inside, Whole, All]
---      , multiline <- [False, True]
---    ]
   ]

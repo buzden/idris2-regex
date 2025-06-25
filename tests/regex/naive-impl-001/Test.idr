@@ -1,6 +1,7 @@
 module Test
 
 import Text.Regex.Naive
+import Text.Regex.Parser.ERE
 import Text.Regex.Printer
 
 import Language.Reflection
@@ -65,4 +66,7 @@ main = printAll (\r, s => rawMatch False r $ unpack s)
   , T (rep $ exists [rep (char 'a'), char 'b']) ["aaab", "aab", "ab", "b", ""]
   , T (rep $ exists [rep $ char 'a', rep $ sym $ const False, char 'b']) ["aaab", "aab", "ab", "b", ""]
   , T (rep $ exists [rep $ char 'a', empty {a=()}, char 'b']) ["aaab", "aab", "ab", "b", ""]
+
+  , T #"[abc]+.+(a|b|c)"#.erx ["a a", "a  a"]
+  , T #"[abc]+.+.?(a|b|c)"#.erx ["a a", "a  a"]
   ]

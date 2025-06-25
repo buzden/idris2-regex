@@ -289,3 +289,19 @@
   - input string: "":
     - (Nothing, [Here []])
     - (Nothing, [])
+
+- regex: [abc]+.+(a|b|c)
+
+  - input string: "a a":
+    - (Just 3, ["a"])
+
+  - input string: "a  a":
+    - (Just 4, ["a"])
+
+- regex: [abc]+.+(?:.|)(a|b|c)
+
+  - input string: "a a":
+    - (Just 3, ["a"])
+
+  - input string: "a  a":
+    - (Just 4, ["a"])
