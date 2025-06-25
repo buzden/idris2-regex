@@ -119,8 +119,7 @@ Regex RegExpText where
 
   string = RET Conseq
 
-  withMatch $ RET p s = RET p s
-  matchOf   $ RET p s = RET p s
+  withMatch $ RET _ s = RET Symbol "(\{s})"
 
   exists []        = empty
   exists [RET p s] = RET p s

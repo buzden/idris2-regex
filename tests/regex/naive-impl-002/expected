@@ -9,7 +9,7 @@
     - single-line mode:
       Just ("m", ("ama\namam", ""))
 
-- regex: (?:[abc])+(?:a|b|c)
+- regex: (?:[abc])+(a|b|c)
 
   - input string: "aa":
 
