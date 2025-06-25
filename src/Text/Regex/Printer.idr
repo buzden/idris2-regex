@@ -37,7 +37,7 @@ Applicative RegExpText where
 
 export
 Alternative RegExpText where
-  empty = RET Conseq "\b\B"
+  empty = RET Conseq #"\b\B"#
   l <|> r = RET Alt "\{tostr Alt l}|\{tostr Alt r}"
 
 toHex : Int -> String
@@ -106,16 +106,16 @@ Regex RegExpText where
   char = RET Symbol . singleton
 
   anyChar Line = RET Symbol "."
-  anyChar Text = RET Symbol "\X"
+  anyChar Text = RET Symbol #"\X"#
   edge Line Start = RET Symbol "^"
   edge Line End   = RET Symbol "$"
-  edge Text Start = RET Symbol "\A"
-  edge Text End   = RET Symbol "\z"
+  edge Text Start = RET Symbol #"\A"#
+  edge Text End   = RET Symbol #"\z"#
 
-  wordBoundary True  True  = RET Symbol "\b"
-  wordBoundary True  False = RET Symbol "\<"
-  wordBoundary False True  = RET Symbol "\>"
-  wordBoundary False False = RET Symbol "\B"
+  wordBoundary True  True  = RET Symbol #"\b"#
+  wordBoundary True  False = RET Symbol #"\<"#
+  wordBoundary False True  = RET Symbol #"\>"#
+  wordBoundary False False = RET Symbol #"\B"#
 
   string = RET Conseq
 
