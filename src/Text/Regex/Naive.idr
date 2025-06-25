@@ -119,9 +119,8 @@ rawMatch multiline r orig = go beginning r orig where
   go atStart rr@(Rep1 r)       cs      = filterNothings $ do
                                            (Just idx@(FS _), x) <- go atStart r cs | (idx, x) => pure (idx, singleton x)
                                            let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
-                                           case filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds) of
-                                             [] => pure (Just idx, singleton x)
-                                             xs => xs
+                                           let sub = filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds)
+                                           sub ++ [(Just idx, singleton x)]
   go _       (Edge _    End)   []      = pure (Just FZ, ())
   go _       (Edge Line End)   (c::cs) = whenT (multiline && isNL c) (Just FZ, ())
   go _       (Edge Text End)   cs      = empty

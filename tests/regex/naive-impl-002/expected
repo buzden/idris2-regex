@@ -14,7 +14,7 @@
   - input string: "aa":
 
     - multiline mode:
-      Nothing
+      Just ("", ("aa", ""))
 
     - single-line mode:
-      Nothing
+      Just ("", ("aa", ""))
