@@ -37,7 +37,7 @@ covering
 matchPerl : (regex, str : String) -> Maybe (String, String, String)
 matchPerl regex str = do
   let input = """
-    $input = \{if null str then "\"\"" else "q\x01\{str}\x01"};
+    $input = q\{show str};
     if ($input =~ /(.*?)(\{regex})/) {
       $post = substr($input, length($1)+length($2));
       $del = "\\n".("-=~"x20)."\\n";
