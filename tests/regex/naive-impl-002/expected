@@ -7,7 +7,7 @@
       Just ("m", ("ama", "\namam"))
 
     - single-line mode:
-      Just ("mama\n", ("amam", ""))
+      Just ("m", ("ama\namam", ""))
 
 - regex: (?:[abc])+(?:a|b|c)
 

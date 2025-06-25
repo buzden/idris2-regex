@@ -129,7 +129,7 @@ rawMatch multiline r orig = go beginning r orig where
   go False   (Edge Line Start) cs      = whenTs multiline $ whenJs (prev cs) $ flip whenT (Just FZ, ()) . isNL
   go False   (Edge Text Start) cs      = empty
   go _       (AnyChar m)       []      = empty
-  go _       (AnyChar m)       (c::cs) = whenT (multiline && isText m || not (isNL c)) (Just 1, c)
+  go _       (AnyChar m)       (c::cs) = whenT (not multiline || isText m || not (isNL c)) (Just 1, c)
   go _       (Sym _)           []      = empty
   go _       (Sym f)           (c::cs) = fromList $ toList $ (Just 1,) <$> f c
 
