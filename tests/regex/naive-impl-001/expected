@@ -80,8 +80,10 @@
 
   - input string: "abab":
     - (Just 2, [Here (Here 'a'), There (Here 'b')])
+    - (Just 1, [Here (There (Here ())), Here (Here 'a')])
 
   - input string: "baba":
+    - (Just 1, [Here (There (Here ())), There (Here 'b')])
     - (Just 2, [There (Here 'b'), Here (Here 'a')])
 
 - regex: (?:ab)*
@@ -92,12 +94,15 @@
   - input string: "abab":
     - (Just 4, [['a', 'b'], ['a', 'b']])
     - (Just 2, [['a', 'b']])
+    - (Nothing, [])
 
   - input string: "aba":
     - (Just 2, [['a', 'b']])
+    - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [['a', 'b']])
+    - (Nothing, [])
 
   - input string: "b":
     - (Nothing, [])
@@ -109,15 +114,19 @@
 
   - input string: "aaab":
     - (Just 4, [(['a', 'a', 'a'], 'b')])
+    - (Nothing, [])
 
   - input string: "aab":
     - (Just 3, [(['a', 'a'], 'b')])
+    - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [(['a'], 'b')])
+    - (Nothing, [])
 
   - input string: "b":
     - (Just 1, [([], 'b')])
+    - (Nothing, [])
 
   - input string: "":
     - (Nothing, [])
@@ -126,15 +135,19 @@
 
   - input string: "aaab":
     - (Just 4, [[['a', 'a', 'a'], 'b']])
+    - (Nothing, [])
 
   - input string: "aab":
     - (Just 3, [[['a', 'a'], 'b']])
+    - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [[['a'], 'b']])
+    - (Nothing, [])
 
   - input string: "b":
     - (Just 1, [[[], 'b']])
+    - (Nothing, [])
 
   - input string: "":
     - (Nothing, [])
@@ -143,12 +156,15 @@
 
   - input string: "aaab":
     - (Just 4, [[['a', 'a', 'a'], 'b']])
+    - (Nothing, [])
 
   - input string: "aab":
     - (Just 3, [[['a', 'a'], 'b']])
+    - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [[['a'], 'b']])
+    - (Nothing, [])
 
   - input string: "b":
     - (Nothing, [])
@@ -160,12 +176,15 @@
 
   - input string: "aaab":
     - (Just 4, [['a', ['a', 'a'], 'b']])
+    - (Nothing, [])
 
   - input string: "aab":
     - (Just 3, [['a', ['a'], 'b']])
+    - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [['a', [], 'b']])
+    - (Nothing, [])
 
   - input string: "b":
     - (Nothing, [])
@@ -177,11 +196,14 @@
 
   - input string: "aaab":
     - (Just 4, [[['a', 'a'], 'a', 'b']])
+    - (Nothing, [])
 
   - input string: "aab":
     - (Just 3, [[['a'], 'a', 'b']])
+    - (Nothing, [])
 
   - input string: "ab":
+    - (Just 2, [[[], 'a', 'b']])
     - (Nothing, [])
 
   - input string: "b":
@@ -204,6 +226,7 @@
     - (Just 3, [Here ['a'], Here ['a'], Here ['a']])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [])
 
   - input string: "aab":
     - (Just 3, [Here ['a', 'a'], There (Here 'b')])
@@ -211,13 +234,16 @@
     - (Just 3, [Here ['a'], Here ['a'], There (Here 'b')])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [Here ['a'], There (Here 'b')])
     - (Just 1, [Here ['a']])
+    - (Nothing, [])
 
   - input string: "b":
     - (Just 1, [There (Here 'b')])
+    - (Nothing, [])
 
   - input string: "":
     - (Nothing, [Here []])
@@ -237,6 +263,7 @@
     - (Just 3, [Here ['a'], Here ['a'], Here ['a']])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [])
 
   - input string: "aab":
     - (Just 3, [Here ['a', 'a'], There (There (Here 'b'))])
@@ -244,13 +271,16 @@
     - (Just 3, [Here ['a'], Here ['a'], There (There (Here 'b'))])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [Here ['a'], There (There (Here 'b'))])
     - (Just 1, [Here ['a']])
+    - (Nothing, [])
 
   - input string: "b":
     - (Just 1, [There (There (Here 'b'))])
+    - (Nothing, [])
 
   - input string: "":
     - (Nothing, [Here []])
@@ -271,6 +301,7 @@
     - (Just 3, [Here ['a'], Here ['a'], Here ['a']])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [])
 
   - input string: "aab":
     - (Just 3, [Here ['a', 'a'], There (There (Here 'b'))])
@@ -278,13 +309,16 @@
     - (Just 3, [Here ['a'], Here ['a'], There (There (Here 'b'))])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [Here ['a'], There (There (Here 'b'))])
     - (Just 1, [Here ['a']])
+    - (Nothing, [])
 
   - input string: "b":
     - (Just 1, [There (There (Here 'b'))])
+    - (Nothing, [])
 
   - input string: "":
     - (Nothing, [Here []])
@@ -304,4 +338,5 @@
     - (Just 3, ["a"])
 
   - input string: "a  a":
+    - (Just 4, ["a"])
     - (Just 4, ["a"])

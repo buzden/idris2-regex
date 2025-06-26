@@ -111,7 +111,7 @@ rawMatch multiline r orig = go beginning r orig where
                                                convIdx $ Just i = Just $ f i
                                                convIdx Nothing  = idx $> f FZ
                                            filterNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
-  go atStart (Sel rs)          cs      = filterNothings $ lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
+  go atStart (Sel rs)          cs      = lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
   go atStart (WordB l r)       cs      = do let wL = atStart || map (charClass Word) (prev cs) /= Just False
                                             let wR = map (charClass Word) (head' cs) /= Just False
                                             flip whenT (Just 0, ()) $ if l == r then l == (wL /= wR) else not wL == l && not wR == r
