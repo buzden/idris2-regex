@@ -48,7 +48,7 @@ data RxLex
 postfixOp : Regex rx => PostfixOp -> rx a -> Exists rx
 postfixOp Rep0         = Evidence _ . rep
 postfixOp Rep1         = Evidence _ . rep1
-postfixOp Opt          = Evidence _ . optional
+postfixOp Opt          = Evidence _ . opt
 postfixOp (RepN n)     = Evidence _ . repeatN n
 postfixOp (RepN_ n)    = Evidence _ . repeatAtLeast n
 postfixOp (RepNM n m)  = Evidence _ . repeatNM n m

@@ -332,7 +332,7 @@
   - input string: "a  a":
     - (Just 4, ["a"])
 
-- regex: [abc]+.+(?:.|)(a|b|c)
+- regex: [abc]+.+.?(a|b|c)
 
   - input string: "a a":
     - (Just 3, ["a"])
