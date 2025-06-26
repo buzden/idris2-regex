@@ -103,8 +103,8 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
                               let posxs : Lazy Nat := pos xs
                               let l@(_::_):::r@(_::_)::[] = split (== ',') bnds
                                 | l:::[]     => parseNat 10 posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN n) $ assert_smaller xs rest
-                                | []:::r::[] => parseNat 10 posxs r >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN_ n) $ assert_smaller xs rest
-                                | l:::[]::[] => parseNat 10 posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ Rep_M n) $ assert_smaller xs rest
+                                | []:::r::[] => parseNat 10 posxs r >>= \m => go !(pushPostfix (pos xxs) ctx $ Rep_M m) $ assert_smaller xs rest
+                                | l:::[]::[] => parseNat 10 posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN_ n) $ assert_smaller xs rest
                                 | _          => Left $ RegexIsBad posxs "too many commas in the bounds, zero or one is expected"
                               r <- parseNat 10 (1 + posxs + length l) r; l <- parseNat 10 posxs l
                               let Yes lr = isLTE l r | No _ => Left $ RegexIsBad posxs "left bound must not be greater than right bound"
