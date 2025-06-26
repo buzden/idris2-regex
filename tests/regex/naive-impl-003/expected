@@ -1,5 +1,11 @@
 ━━━ patricular regular expression ━━━
   ✓ particular expression [abc]+(a|b|c), inside, single-line mode passed 100 tests.
   ✓ particular expression [abc]+.+.?(a|b|c), inside, single-line mode passed 100 tests.
-  ✓ particular expression ^(?:[^a-c-d]{,4}?[[:digit:]ab\x4F\x{004f}])+.*, inside, single-line mode passed 100 tests.
-  ✓ 3 succeeded.
+  ✓ particular expression ^[^a-c-d]{,4}, inside, single-line mode passed 100 tests.
+  ✓ particular expression ..?[[:digit:]], inside, single-line mode passed 100 tests.
+  ✓ particular expression .?.?[[:digit:]], inside, single-line mode passed 100 tests.
+  ✓ particular expression .{,2}[[:digit:]], inside, single-line mode passed 100 tests.
+  ✓ particular expression ^[^a-c-d]{,4}[[:digit:]], inside, single-line mode passed 100 tests.
+  ✓ particular expression ^(?:[^a-c-d]{,4})?[[:digit:]], inside, single-line mode passed 100 tests.
+  ✓ particular expression ^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+.*, inside, single-line mode passed 100 tests.
+  ✓ 9 succeeded.

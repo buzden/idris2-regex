@@ -1,6 +1,7 @@
 module Test
 
 import Text.Regex
+import Text.Regex.Printer
 
 import Hedgehog
 
@@ -65,6 +66,9 @@ matchNaive regex str = do
 covering
 naiveMatchesPerl : (regex : String) -> (PropertyName, Property)
 naiveMatchesPerl regex = MkPair (fromString "particular expression \{regex}, inside, single-line mode") $ property $ do
+  case parseRegex {rx=RegExpText} regex of
+    Right (Evidence _ p) => annotate "\{p}"
+    Left _               => pure ()
   str <- forAll $ string (constant 0 100) (char $ constant ' ' '\x7E')
   let mp = matchPerl regex str
   let mn = matchNaive regex str
@@ -80,7 +84,13 @@ main = test
   [ "patricular regular expression" `MkGroup`
     [ naiveMatchesPerl #"[abc]+(a|b|c)"#
     , naiveMatchesPerl #"[abc]+.+.?(a|b|c)"#
+    , naiveMatchesPerl #"^[^a-c-d]{,4}"#
+    , naiveMatchesPerl #"..?[[:digit:]]"#
+    , naiveMatchesPerl #".?.?[[:digit:]]"#
+    , naiveMatchesPerl #".{,2}[[:digit:]]"#
+    , naiveMatchesPerl #"^[^a-c-d]{,4}[[:digit:]]"#
+    , naiveMatchesPerl #"^(?:[^a-c-d]{,4})?[[:digit:]]"#
     , naiveMatchesPerl #"^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+.*"#
---    , naiveMatchesPerl #"^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+.*+fev\x4F\x{0000000000004F}+"#
+--    , naiveMatchesPerl #"^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+(?:.*)+fev\x4F\x{0000000000004F}+"#
     ]
   ]
