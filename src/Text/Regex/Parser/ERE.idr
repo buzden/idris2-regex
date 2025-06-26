@@ -71,6 +71,7 @@ push (MkLexCtxt ch ls)          l     = MkLexCtxt ch $ ls :< l
 pushPostfix : (pos : Lazy Nat) -> LexCtxt -> PostfixOp -> Either BadRegex LexCtxt
 pushPostfix pos (MkLexCtxt ch $ sx :< C (cs@(_:<_) :< last)) op = pure $ MkLexCtxt ch $ sx :< C cs :< Post (C [<last]) op
 pushPostfix pos (MkLexCtxt ch $ sx :< Alt                  ) _  = Left $ RegexIsBad pos "illegal postfix operator after `|`"
+pushPostfix pos (MkLexCtxt ch $ sx :< Post {}              ) _  = Left $ RegexIsBad pos "illegal or unsupported double postfix operator"
 pushPostfix pos (MkLexCtxt ch $ sx :< x                    ) op = pure $ MkLexCtxt ch $ sx :< Post x op
 pushPostfix pos _                                            _  = Left $ RegexIsBad pos "nothing to apply the postfix operator"
 

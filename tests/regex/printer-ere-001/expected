@@ -1,4 +1,4 @@
 1/1: Building Text.Regex.Printer.Test (Text/Regex/Printer/Test.idr)
-Text.Regex.Printer.Test> "cba|(?:abc)?|asf|bdf|k?(?:a|b)z|(?:\\b\\B|w)(?:\\b\\B|v)?k"
+Text.Regex.Printer.Test> "cba|(?:abc)?|asf|bdf|k?(?:a|b)z|(?:\\b\\B|w)(?:\\b\\B|v)?k|(?:a*)?"
 Text.Regex.Printer.Test> 
 Bye for now!

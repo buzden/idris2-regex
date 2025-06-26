@@ -24,7 +24,8 @@ export
 data RegExpText a = RET OpPri String
 
 tostr : (context : OpPri) -> RegExpText a -> String
-tostr outer $ RET inner s = if outer > inner then "(?:\{s})" else s
+tostr Postfix $ RET Postfix s = "(?:\{s})"
+tostr outer   $ RET inner   s = if outer > inner then "(?:\{s})" else s
 
 Cast (RegExpText a) (RegExpText b) where
   cast $ RET p s = RET p s

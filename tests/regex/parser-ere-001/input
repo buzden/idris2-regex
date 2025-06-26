@@ -1,1 +1,1 @@
-lexERE $ unpack #"^(?:[^a-c-d]{,4}?[[:digit:]ab\x4F\x{004f}])+.*+fev\x4F\x{0000000000004F}+"#
+lexERE $ unpack #"^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+(?:.*)+fev\x4F\x{0000000000004F}+"#

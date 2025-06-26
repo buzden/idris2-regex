@@ -1,0 +1,28 @@
+1/1: Building Test (Test.idr)
+Error: While processing right hand side of bad_nested_postfix. Sorry, I can't find any elaboration which works. All errors:
+Possible error:
+    Error during reflection: Bad regular expression at position 2: illegal or unsupported double postfix operator
+
+    Test:8:26--8:26
+     4 | 
+     5 | %default total
+     6 | 
+     7 | bad_nested_postfix : Regex rx => rx ?
+     8 | bad_nested_postfix = #"a*?"#.erx
+                                  
+
+Possible error:
+    When unifying:
+        String -> Elab (?rx ?a)
+    and:
+        Elab ?scriptTy
+    Mismatch between: String -> Elab (?rx ?a) and Elab ?scriptTy.
+
+    Test:8:29--8:33
+     4 | 
+     5 | %default total
+     6 | 
+     7 | bad_nested_postfix : Regex rx => rx ?
+     8 | bad_nested_postfix = #"a*?"#.erx
+                                     ^^^^
+

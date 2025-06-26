@@ -1,1 +1,1 @@
-interpolate {a=RegExpText ?} $ exists [string "cba", opt (string "abc")] <|> map ? (string "asf" <|> string "bdf") <|> map ? (all [opt (char 'k'), char 'a' <|> char 'b', char 'z']) <|> map ? (all [empty <|> char 'w', opt (empty <|> char 'v'), char 'k'])
+interpolate {a=RegExpText ?} $ exists [string "cba", opt (string "abc")] <|> map ? (string "asf" <|> string "bdf") <|> map ? (all [opt (char 'k'), char 'a' <|> char 'b', char 'z']) <|> map ? (all [empty <|> char 'w', opt (empty <|> char 'v'), char 'k']) <|> map ? (opt $ rep $ char 'a')
