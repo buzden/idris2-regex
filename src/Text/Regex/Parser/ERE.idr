@@ -50,9 +50,9 @@ postfixOp Rep0         = Evidence _ . rep
 postfixOp Rep1         = Evidence _ . rep1
 postfixOp Opt          = Evidence _ . opt
 postfixOp (RepN n)     = Evidence _ . repeatN n
-postfixOp (RepN_ n)    = Evidence _ . repeatAtLeast n
+postfixOp (RepN_ n)    = Evidence _ . repeatNOrMore n
 postfixOp (RepNM n m)  = Evidence _ . repeatNM n m
-postfixOp (Rep_M m)    = Evidence _ . repeatAtMost m
+postfixOp (Rep_M m)    = Evidence _ . repeatNOrLess m
 
 data CtxtNesting : Type
 record LexCtxt where

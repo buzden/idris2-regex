@@ -138,8 +138,8 @@ Regex RegExpText where
   rep  r = RET Postfix "\{tostr Postfix r}*"
   rep1 r = RET Postfix "\{tostr Postfix r}+"
   repeatN       n r = RET Postfix "\{tostr Postfix r}{\{show n}}"
-  repeatAtLeast n r = RET Postfix "\{tostr Postfix r}{\{show n},}"
-  repeatAtMost  n r = RET Postfix "\{tostr Postfix r}{,\{show n}}"
+  repeatNOrMore n r = RET Postfix "\{tostr Postfix r}{\{show n},}"
+  repeatNOrLess n r = RET Postfix "\{tostr Postfix r}{,\{show n}}"
   repeatNM    n m r = RET Postfix "\{tostr Postfix r}{\{show n},\{show m}}"
 
 export

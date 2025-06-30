@@ -77,15 +77,15 @@ interface Alternative rx => Regex rx where
   repeatN : (n : Nat) -> rx a -> rx $ Vect n a
   repeatN n = sequence . replicate n
 
-  repeatAtLeast : (n : Nat) -> rx a -> rx $ List a
-  repeatAtLeast n r = [| map toList (repeatN n r) ++ rep r |]
+  repeatNOrMore : (n : Nat) -> rx a -> rx $ List a
+  repeatNOrMore n r = [| map toList (repeatN n r) ++ rep r |]
 
-  repeatAtMost : (m : Nat) -> rx a -> rx $ List a
-  repeatAtMost Z     _ = pure []
-  repeatAtMost (S m) r = [| r :: repeatAtMost m r |] <|> pure []
+  repeatNOrLess : (n : Nat) -> rx a -> rx $ List a
+  repeatNOrLess Z     _ = pure []
+  repeatNOrLess (S n) r = [| r :: repeatNOrLess n r |] <|> pure []
 
   repeatNM : (n, m : Nat) -> (0 nm : n `LTE` m) => rx a -> rx $ List a
-  repeatNM n m r = [| map toList (repeatN n r) ++ repeatAtMost (m `minus` n) r |]
+  repeatNM n m r = [| map toList (repeatN n r) ++ repeatNOrLess (m `minus` n) r |]
 
 --- Special general cases ---
 
