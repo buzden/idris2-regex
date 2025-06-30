@@ -83,6 +83,8 @@ main : IO ()
 main = test
   [ "patricular regular expression" `MkGroup`
     [ naiveMatchesPerl #"[abc]+(a|b|c)"#
+    , naiveMatchesPerl #".+(a|b|c)"#
+    , naiveMatchesPerl #".+.+.+(a|b|c)"#
     , naiveMatchesPerl #"[abc]+.+.?(a|b|c)"#
     , naiveMatchesPerl #"^[^a-c-d]{,4}"#
     , naiveMatchesPerl #"..?[[:digit:]]"#
@@ -91,6 +93,7 @@ main = test
     , naiveMatchesPerl #"^[^a-c-d]{,4}[[:digit:]]"#
     , naiveMatchesPerl #"^(?:[^a-c-d]{,4})?[[:digit:]]"#
     , naiveMatchesPerl #"^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+.*"#
+    , naiveMatchesPerl #"^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+(?:.*)+"#
 --    , naiveMatchesPerl #"^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+(?:.*)+fev\x4F\x{0000000000004F}+"#
     ]
   ]

@@ -83,8 +83,8 @@ hasntMove Nothing       = True
 hasntMove (Just FZ)     = True
 hasntMove (Just $ FS _) = False
 
-filterNothings : LazyList (Maybe a, b) -> LazyList (Maybe a, b)
-filterNothings xs = case filter (isJust . fst) xs of [] => xs; xs' => xs'
+postponeNothings : LazyList (Maybe a, b) -> LazyList (Maybe a, b)
+postponeNothings xs = filter (isJust . fst) xs ++ filter (not . isJust . fst) xs
 
 isText : LineMode -> Bool
 isText Text = True
@@ -105,22 +105,21 @@ rawMatch multiline r orig = go beginning r orig where
   go : forall a. Bool -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
   go atStart (Map f r)         cs      = map @{Compose} f $ go atStart r cs
   go atStart (Seq [])          cs      = pure (Nothing, [])
-  go atStart (Seq $ r::rs)     cs      = filterNothings $ go atStart r cs >>= \(idx, x) => do
+  go atStart (Seq $ r::rs)     cs      = go atStart r cs >>= \(idx, x) => do
                                            let (ds ** f) = precDrop cs $ fromMaybe FZ idx
                                            let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
                                                convIdx $ Just i = Just $ f i
                                                convIdx Nothing  = idx $> f FZ
-                                           filterNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
-  go atStart (Sel rs)          cs      = lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
+                                           postponeNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
+  go atStart (Sel rs)          cs      = postponeNothings $ lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
   go atStart (WordB l r)       cs      = do let wL = atStart || map (charClass Word) (prev cs) /= Just False
                                             let wR = map (charClass Word) (head' cs) /= Just False
                                             flip whenT (Just 0, ()) $ if l == r then l == (wL /= wR) else not wL == l && not wR == r
   go atStart (WithMatch rs)    cs      = go atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
-  go atStart rr@(Rep1 r)       cs      = filterNothings $ do
-                                           (Just idx@(FS _), x) <- go atStart r cs | (idx, x) => pure (idx, singleton x)
-                                           let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
-                                           let sub = filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds)
-                                           sub ++ [(Just idx, singleton x)]
+  go atStart rr@(Rep1 r)       cs      = do (Just idx@(FS _), x) <- go atStart r cs | (idx, x) => pure (idx, singleton x)
+                                            let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
+                                            let sub = filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds)
+                                            sub ++ [(Just idx, singleton x)]
   go _       (Edge _    End)   []      = pure (Just FZ, ())
   go _       (Edge Line End)   (c::cs) = whenT (multiline && isNL c) (Just FZ, ())
   go _       (Edge Text End)   cs      = empty

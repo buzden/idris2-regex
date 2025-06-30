@@ -80,11 +80,15 @@
 
   - input string: "abab":
     - (Just 2, [Here (Here 'a'), There (Here 'b')])
+    - (Just 1, [Here (Here 'a'), Here (There (Here ()))])
     - (Just 1, [Here (There (Here ())), Here (Here 'a')])
+    - (Nothing, [Here (There (Here ())), Here (There (Here ()))])
 
   - input string: "baba":
-    - (Just 1, [Here (There (Here ())), There (Here 'b')])
     - (Just 2, [There (Here 'b'), Here (Here 'a')])
+    - (Just 1, [There (Here 'b'), Here (There (Here ()))])
+    - (Just 1, [Here (There (Here ())), There (Here 'b')])
+    - (Nothing, [Here (There (Here ())), Here (There (Here ()))])
 
 - regex: (?:ab)*
 
@@ -226,6 +230,7 @@
     - (Just 3, [Here ['a'], Here ['a'], Here ['a']])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [Here []])
     - (Nothing, [])
 
   - input string: "aab":
@@ -234,15 +239,18 @@
     - (Just 3, [Here ['a'], Here ['a'], There (Here 'b')])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [Here []])
     - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [Here ['a'], There (Here 'b')])
     - (Just 1, [Here ['a']])
+    - (Nothing, [Here []])
     - (Nothing, [])
 
   - input string: "b":
     - (Just 1, [There (Here 'b')])
+    - (Nothing, [Here []])
     - (Nothing, [])
 
   - input string: "":
@@ -263,6 +271,8 @@
     - (Just 3, [Here ['a'], Here ['a'], Here ['a']])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [Here []])
+    - (Nothing, [There (Here [])])
     - (Nothing, [])
 
   - input string: "aab":
@@ -271,15 +281,21 @@
     - (Just 3, [Here ['a'], Here ['a'], There (There (Here 'b'))])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [Here []])
+    - (Nothing, [There (Here [])])
     - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [Here ['a'], There (There (Here 'b'))])
     - (Just 1, [Here ['a']])
+    - (Nothing, [Here []])
+    - (Nothing, [There (Here [])])
     - (Nothing, [])
 
   - input string: "b":
     - (Just 1, [There (There (Here 'b'))])
+    - (Nothing, [Here []])
+    - (Nothing, [There (Here [])])
     - (Nothing, [])
 
   - input string: "":
@@ -301,6 +317,7 @@
     - (Just 3, [Here ['a'], Here ['a'], Here ['a']])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [Here []])
     - (Nothing, [])
 
   - input string: "aab":
@@ -309,20 +326,85 @@
     - (Just 3, [Here ['a'], Here ['a'], There (There (Here 'b'))])
     - (Just 2, [Here ['a'], Here ['a']])
     - (Just 1, [Here ['a']])
+    - (Nothing, [Here []])
     - (Nothing, [])
 
   - input string: "ab":
     - (Just 2, [Here ['a'], There (There (Here 'b'))])
     - (Just 1, [Here ['a']])
+    - (Nothing, [Here []])
     - (Nothing, [])
 
   - input string: "b":
     - (Just 1, [There (There (Here 'b'))])
+    - (Nothing, [Here []])
     - (Nothing, [])
 
   - input string: "":
     - (Nothing, [Here []])
     - (Nothing, [])
+
+- regex: .{,2}[[:digit:]]
+
+  - input string: "0":
+    - (Just 1, [])
+
+  - input string: " 0":
+    - (Just 2, [])
+
+  - input string: "  0":
+    - (Just 3, [])
+
+  - input string: "   0":
+      <none>
+
+- regex: .{2}[[:digit:]]
+
+  - input string: "0":
+      <none>
+
+  - input string: " 0":
+      <none>
+
+  - input string: "  0":
+    - (Just 3, [])
+
+  - input string: "   0":
+      <none>
+
+- regex: .{2,}[[:digit:]]
+
+  - input string: "0":
+      <none>
+
+  - input string: " 0":
+      <none>
+
+  - input string: "  0":
+    - (Just 3, [])
+
+  - input string: "   0":
+    - (Just 4, [])
+
+- regex: .{2,4}[[:digit:]]
+
+  - input string: "0":
+      <none>
+
+  - input string: " 0":
+      <none>
+
+  - input string: "  0":
+    - (Just 3, [])
+
+  - input string: "   0":
+    - (Just 4, [])
+
+  - input string: "    0":
+    - (Just 5, [])
+
+  - input string: "     0":
+      <none>
 
 - regex: [abc]+.+(a|b|c)
 

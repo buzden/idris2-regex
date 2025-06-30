@@ -67,6 +67,11 @@ main = printAll (\r, s => rawMatch False r $ unpack s)
   , T (rep $ exists [rep $ char 'a', rep $ sym $ const False, char 'b']) ["aaab", "aab", "ab", "b", ""]
   , T (rep $ exists [rep $ char 'a', empty {a=()}, char 'b']) ["aaab", "aab", "ab", "b", ""]
 
+  , T #".{,2}[[:digit:]]"#.erx ["0", " 0", "  0", "   0"]
+  , T #".{2}[[:digit:]]"#.erx ["0", " 0", "  0", "   0"]
+  , T #".{2,}[[:digit:]]"#.erx ["0", " 0", "  0", "   0"]
+  , T #".{2,4}[[:digit:]]"#.erx ["0", " 0", "  0", "   0", "    0", "     0"]
+
   , T #"[abc]+.+(a|b|c)"#.erx ["a a", "a  a"]
   , T #"[abc]+.+.?(a|b|c)"#.erx ["a a", "a  a"]
   ]
