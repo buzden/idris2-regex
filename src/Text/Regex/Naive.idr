@@ -19,52 +19,63 @@ import public Text.Matcher
 --- The type and its implementations ---
 ----------------------------------------
 
+record RegExp (a : Type)
+
 export
-data RegExp : Type -> Type where
-  Map       : (a -> b) -> RegExp a -> RegExp b
+data RegExpOp : Type -> Type where
+  Seq       : All RegExp tys -> RegExpOp $ All Prelude.id tys -- empty list always matches
+  Sel       : All RegExp tys -> RegExpOp $ Any Prelude.id tys -- empty list never matches
 
-  Seq       : All RegExp tys -> RegExp $ All Prelude.id tys -- empty list always matches
-  Sel       : All RegExp tys -> RegExp $ Any Prelude.id tys -- empty list never matches
+  WordB     : (l, r : Bool) -> RegExpOp ()
+  WithMatch : RegExp a -> RegExpOp (List Char, a)
 
-  WordB     : (l, r : Bool) -> RegExp ()
-  WithMatch : RegExp a -> RegExp (List Char, a)
+  Rep1      : RegExp a -> RegExpOp $ List1 a
 
-  Rep1      : RegExp a -> RegExp $ List1 a
+  Edge      : LineMode -> EdgeSide -> RegExpOp ()
+  AnyChar   : LineMode -> RegExpOp Char
+  Sym       : (Char -> Maybe a) -> RegExpOp a
 
-  Edge      : LineMode -> EdgeSide -> RegExp ()
-  AnyChar   : LineMode -> RegExp Char
-  Sym       : (Char -> Maybe a) -> RegExp a
+export
+record RegExp a where
+  constructor RE
+  operation : RegExpOp opTy
+  mapping   : opTy -> a
 
 %name RegExp r, rx
 
 public export
 Functor RegExp where
-  map f $ Map f' r = Map (f . f') r
-  map f r          = Map f r
+  map f = {mapping $= (f .)}
 
--- TODO to implement `Seq` fusion (looking inside `Map` and `WithMatch` too)
+splitAt' : All f ls -> All g (ls ++ rs) -> (All g ls, All g rs)
+splitAt' []      ps      = ([], ps)
+splitAt' (_::xs) (p::ps) = mapFst (p::) (splitAt' xs ps)
+
 public export
 Applicative RegExp where
-  pure x = Seq [] <&> const x
-  x <*> y = Seq [x, y] <&> \[l, r] => l r
+  pure x = Seq [] `RE` const x
 
--- TODO to implement `Sel` fusion (looking inside `Map` and `WithMatch` too)
+  RE (Seq ls) ml <*> RE (Seq rs) mr = Seq (ls ++ rs) `RE` \xx => let (l, r) = splitAt' ls xx in ml l $ mr r
+  RE (Seq ls) ml <*> r              = Seq (ls ++ [r]) `RE` \xx => let (l, r) = splitAt' ls xx in ml l $ head r
+  l              <*> RE (Seq rs) mr = Seq (l :: rs) `RE` \(x::xs) => x $ mr xs
+  l              <*> r              = Seq [l, r] `RE` \[l, r] => l r
+
+altWith : All f ls -> (Any g ls -> a) -> (Any g rs -> a) -> Any g (ls ++ rs) -> a
+altWith []      _ r an        = r an
+altWith (x::xs) l r $ Here y  = l $ Here y
+altWith (x::xs) l r $ There y = altWith xs (l . There) r y
+
+theOnly : Any p [x] -> p x
+theOnly $ Here y = y
+
 public export
 Alternative RegExp where
-  empty = Sel [] <&> \case _ impossible
-  x <|> y = Sel [x, y] <&> \case Here x => x; There (Here x) => x
+  empty = Sel [] `RE` \case _ impossible
 
-export
-[LowLevel] Show (RegExp a) where
-  showPrec d $ Map f r     = showCon d "Map" $ " <fun>" ++ showArg r
-  showPrec d $ Seq rs      = showCon d "Seq" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
-  showPrec d $ Sel rs      = showCon d "Sel" $ let _ = mapProperty (const $ assert_total LowLevel) rs in showArg rs
-  showPrec d $ WordB l r   = showCon d "WordB" $ showArg l ++ showArg r
-  showPrec d $ WithMatch r = showCon d "WithMatch" $ showArg r
-  showPrec d $ Rep1 r      = showCon d "Rep1" $ showArg r
-  showPrec d $ Edge t s    = showCon d "Edge" $ showArg t ++ showArg s
-  showPrec d $ AnyChar m   = showCon d "AnyChar" $ showArg m
-  showPrec d $ Sym f       = showCon d "Sym" " <fun>"
+  RE (Sel ls) ml <|> RE (Sel rs) mr = Sel (ls ++ rs) `RE` altWith ls ml mr
+  l              <|> RE (Sel rs) mr = Sel (l :: rs) `RE` \case Here x => x; There y => mr y
+  RE (Sel ls) ml <|> Delay r        = Sel (ls ++ [r]) `RE` altWith ls ml theOnly
+  x              <|> y              = Sel [x, y] `RE` \case Here x => x; There (Here x) => x
 
 -------------------
 --- Interpreter ---
@@ -93,7 +104,7 @@ isText Line = False
 --- Return the index after which the unmatched rest is
 export
 rawMatch : {default True beginning : Bool} -> (multiline : Bool) -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-rawMatch multiline r orig = go beginning r orig where
+rawMatch multiline r orig = go' beginning r orig where
   prev : (curr : List Char) -> Maybe Char
   prev curr = do
     let origL = length orig
@@ -102,21 +113,22 @@ rawMatch multiline r orig = go beginning r orig where
     let prevPos = origL `minus` S currL
     let Yes _ = inBounds prevPos orig | No _ => Nothing
     Just $ index prevPos orig
-  go : forall a. Bool -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-  go atStart (Map f r)         cs      = map @{Compose} f $ go atStart r cs
+  go' : forall a. Bool -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+  go : forall a. Bool -> RegExpOp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+  go' atStart (RE op ma) cs = map @{Compose} ma $ go atStart op cs
   go atStart (Seq [])          cs      = pure (Nothing, [])
-  go atStart (Seq $ r::rs)     cs      = go atStart r cs >>= \(idx, x) => do
+  go atStart (Seq $ r::rs)     cs      = go' atStart r cs >>= \(idx, x) => do
                                            let (ds ** f) = precDrop cs $ fromMaybe FZ idx
                                            let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
                                                convIdx $ Just i = Just $ f i
                                                convIdx Nothing  = idx $> f FZ
                                            postponeNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
-  go atStart (Sel rs)          cs      = postponeNothings $ lazyAllAnies rs >>= \r => go atStart (assert_smaller rs $ pushOut r) cs
+  go atStart (Sel rs)          cs      = postponeNothings $ lazyAllAnies rs >>= \r => go' atStart (assert_smaller rs $ pushOut r) cs
   go atStart (WordB l r)       cs      = do let wL = atStart || map (charClass Word) (prev cs) /= Just False
                                             let wR = map (charClass Word) (head' cs) /= Just False
                                             flip whenT (Just 0, ()) $ if l == r then l == (wL /= wR) else not wL == l && not wR == r
-  go atStart (WithMatch rs)    cs      = go atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
-  go atStart rr@(Rep1 r)       cs      = do (Just idx@(FS _), x) <- go atStart r cs | (idx, x) => pure (idx, singleton x)
+  go atStart (WithMatch rs)    cs      = go' atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
+  go atStart rr@(Rep1 r)       cs      = do (Just idx@(FS _), x) <- go' atStart r cs | (idx, x) => pure (idx, singleton x)
                                             let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
                                             let sub = filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds)
                                             sub ++ [(Just idx, singleton x)]
@@ -155,14 +167,14 @@ namespace Regex
 
   export
   [Naive] Regex RegExp where
-    sym' = Sym
-    anyChar = AnyChar
-    edge = Edge
-    wordBoundary = WordB
-    withMatch = map (mapFst pack) . WithMatch
-    all = Seq
-    exists = Sel
-    rep1 = Rep1
+    sym'         = (`RE` id) . Sym
+    anyChar      = (`RE` id) . AnyChar
+    edge         = (`RE` id) .: Edge
+    wordBoundary = (`RE` id) .: WordB
+    withMatch    = (`RE` mapFst pack) . WithMatch
+    all          = (`RE` id) . Seq
+    exists       = (`RE` id) . Sel
+    rep1         = (`RE` id) . Rep1
 
   public export %hint RegexRegExp : Regex RegExp; RegexRegExp = Naive
 
