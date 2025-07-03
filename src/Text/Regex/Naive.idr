@@ -124,9 +124,11 @@ rawMatch multiline r orig = go' beginning r orig where
                                                convIdx Nothing  = idx $> f FZ
                                            postponeNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
   go atStart (Sel rs)          cs      = postponeNothings $ lazyAllAnies rs >>= \r => go' atStart (assert_smaller rs $ pushOut r) cs
-  go atStart (WordB l r)       cs      = do let wL = atStart || map (charClass Word) (prev cs) /= Just False
-                                            let wR = map (charClass Word) (head' cs) /= Just False
-                                            flip whenT (Just 0, ()) $ if l == r then l == (wL /= wR) else not wL == l && not wR == r
+  go atStart (WordB l r)       cs      = do let wL = map (charClass Word) (prev cs)
+                                            let wR = map (charClass Word) (head' cs)
+                                            let lB = wL /= Just True  && wR /= Just False
+                                            let rB = wL /= Just False && wR /= Just True
+                                            flip whenT (Just 0, ()) $ l && lB || r && rB || not l && not r && not lB && not rB
   go atStart (WithMatch rs)    cs      = go' atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
   go atStart rr@(Rep1 r)       cs      = do (Just idx@(FS _), x) <- go' atStart r cs | (idx, x) => pure (idx, singleton x)
                                             let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
