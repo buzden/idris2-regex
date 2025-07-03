@@ -23,4 +23,7 @@ main = Lazy.traverse_ putStrLn
   , replaceAll.const #"\>"#.erx "_" "mama mia"
   , replaceAll.const #"\<"#.erx "_" "mama mia"
   , replaceAll.const #"\B"#.erx "_" "mama mia"
+
+  , "\n--- replace all with empty match too---\n"
+  , replaceAll "m(.?)(a|b)".erx (\o, [i, r] => "[\{o}(\{i})<\{r}>]") "mamma mia"
   ]

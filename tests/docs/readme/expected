@@ -1,1 +1,29 @@
 1/1: Building README (README.md)
+---------------------------------------
+--- Running `main_matchWhole`
+---------------------------------------
+Just ["c"]
+Nothing
+---------------------------------------
+--- Running `main_matchInside`
+---------------------------------------
+Just "Language "
+Just "Idris"
+Just ", also known as Idris 2"
+---------------------------------------
+--- Running `main_matchAll`
+---------------------------------------
+["Idris", "Idris 2"]
+---------------------------------------
+--- Running `main_matchInside_with_match_groups`
+---------------------------------------
+Just ["Idris", "also known as Idris 2"]
+---------------------------------------
+--- Running `main_replacements`
+---------------------------------------
+"m_mm_ mi_"
+"_m_ mia"
+"[mama]m[mama] mia"
+"mammmam imiai"
+"[ma()<a>][mma(m)<a>] [mia(i)<a>]"
+"mamam iai"

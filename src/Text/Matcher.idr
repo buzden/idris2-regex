@@ -34,14 +34,24 @@ matchedCnt $ Stop {}         = Z
 matchedCnt $ Match {cont, _} = S $ matchedCnt cont
 
 public export
-matchesOnly' : (ms : AllMatchedInside a) -> Vect (matchedCnt ms) String
-matchesOnly' $ Stop _                 = []
-matchesOnly' $ Match _ matched _ cont = matched :: matchesOnly' cont
+matchedStrs' : (ms : AllMatchedInside a) -> Vect (matchedCnt ms) String
+matchedStrs' $ Stop _                 = []
+matchedStrs' $ Match _ matched _ cont = matched :: matchedStrs' cont
 
 public export
-matchesOnly : AllMatchedInside a -> List String
-matchesOnly $ Stop _                 = []
-matchesOnly $ Match _ matched _ cont = matched :: matchesOnly cont
+matchedVals' : (ms : AllMatchedInside a) -> Vect (matchedCnt ms) a
+matchedVals' $ Stop _             = []
+matchedVals' $ Match _ _ val cont = val :: matchedVals' cont
+
+public export
+matchedStrs : AllMatchedInside a -> List String
+matchedStrs $ Stop _                 = []
+matchedStrs $ Match _ matched _ cont = matched :: matchedStrs cont
+
+public export
+matchedVals : AllMatchedInside a -> List a
+matchedVals $ Stop _             = []
+matchedVals $ Match _ _ val cont = val :: matchedVals cont
 
 -------------------------
 --- Matcher interface ---

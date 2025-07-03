@@ -129,7 +129,7 @@ rawMatch multiline r orig str with (length orig)
                                               let lB = wL /= Just True  && wR /= Just False
                                               let rB = wL /= Just False && wR /= Just True
                                               flip whenT (Just 0, ()) $ l && lB || r && rB || not l && not r && not lB && not rB
-    go atStart (WithMatch rs)    cs      = go' atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
+    go atStart (WithMatch rs)    cs      = go' atStart rs cs <&> \(idx, x) => (idx, maybe (const []) (\i => take (finToNat i)) idx cs, x)
     go atStart rr@(Rep1 r)       cs      = do (Just idx@(FS _), x) <- go' atStart r cs | (idx, x) => pure (idx, singleton x)
                                               let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
                                               let sub = filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds)
@@ -193,7 +193,7 @@ namespace Matcher
     matchWhole' multiline r str = do
       let str = unpack str
       (idx, x) <- head' $ rawMatch multiline r str str
-      guard (fromMaybe FZ idx /= last) $> x
+      guard (fromMaybe FZ idx == last) $> x
     matchInside' multiline r str = do
       let str = unpack str
       head' (rawMatchIn multiline r str str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)

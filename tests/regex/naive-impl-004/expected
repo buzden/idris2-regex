@@ -20,3 +20,7 @@ _mama_ _mia_
 mama_ mia_
 _mama _mia
 m_a_m_a m_i_a
+
+--- replace all with empty match too---
+
+[ma()<a>][mma(m)<a>] [mia(i)<a>]
