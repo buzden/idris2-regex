@@ -1,0 +1,22 @@
+
+--- replace `a` to `_`---
+
+m_m_ mi_
+
+--- replace `ma` or `m(a|b)` to `_`---
+
+__ mia
+__ mia
+__ mia
+mamamama mia
+
+--- replace `(m.?)(a|b)` with `[x, y] => y ++ x ++ y` ---
+
+amaama amia
+
+--- word bounds ---
+
+_mama_ _mia_
+mama_ mia_
+_mama _mia
+m_a_m_a m_i_a
