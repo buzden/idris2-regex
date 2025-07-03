@@ -1,6 +1,9 @@
 module Text.Matcher
 
+import Data.SnocList
 import Data.Vect
+
+import Syntax.IHateParens.Function
 
 %default total
 
@@ -64,11 +67,49 @@ interface TextMatcher tm where
                Stop post' => Match pre match val $ Stop $ strCons k post'
                Match pre' match' val' cont' => Match pre match val $ Match (strCons k pre') match' val' cont'
 
--- The following functions are a workaround of current inability of interfaces to hold functions with `default` arguments.
+parameters {default False multiline : Bool}
+
+  -- The following functions are a workaround of current inability of interfaces to hold functions with `default` arguments.
+  public export %inline matchWhole  : TextMatcher tm => tm a -> String -> Maybe a                  ; matchWhole  = matchWhole' multiline
+  public export %inline matchInside : TextMatcher tm => tm a -> String -> Maybe $ OneMatchInside a ; matchInside = matchInside' multiline
+  public export %inline matchAll    : TextMatcher tm => tm a -> String -> AllMatchedInside a       ; matchAll    = matchAll' multiline
+
+  -----------------------------
+  --- Replacement functions ---
+  -----------------------------
+
+  export
+  replaceOne : TextMatcher tm =>
+               (pattern : tm a) ->
+               (replacement : (match : String) -> (val : a) -> String) ->
+               String -> String
+  replaceOne pattern replacement str = maybe str rep $ matchInside pattern str where
+    %inline rep : OneMatchInside a -> String
+    rep $ MkOneMatchInside pre match val post = pre ++ replacement match val ++ post
+
+  export
+  replaceAll : TextMatcher tm =>
+               (pattern : tm a) ->
+               (replacement : (orig : String) -> (val : a) -> String) ->
+               String -> String
+  replaceAll pattern replacement = concat . rep [<] . matchAll pattern where
+    rep : SnocList String -> AllMatchedInside a -> SnocList String
+    rep acc $ Stop post                  = acc :< post
+    rep acc $ Match pre matched val cont = rep .| acc :< pre :< replacement matched val .| cont
+
+--- Modifiers for replacement functions ---
 
 public export %inline
-matchWhole  : {default False multiline : Bool} -> TextMatcher tm => tm a -> String -> Maybe a                  ; matchWhole  = matchWhole' multiline
+(.str) : (t -> (String -> a -> String) -> String -> String) ->
+         (t -> (String -> String)      -> String -> String)
+f.str p r = f p $ const . r
+
 public export %inline
-matchInside : {default False multiline : Bool} -> TextMatcher tm => tm a -> String -> Maybe $ OneMatchInside a ; matchInside = matchInside' multiline
+(.val) : (t -> (String -> a -> String) -> String -> String) ->
+         (t -> (a -> String)           -> String -> String)
+f.val p = f p . const
+
 public export %inline
-matchAll    : {default False multiline : Bool} -> TextMatcher tm => tm a -> String -> AllMatchedInside a       ; matchAll    = matchAll' multiline
+(.const) : (t -> (String -> a -> String) -> String -> String) ->
+           (t -> String                  -> String -> String)
+f.const p = f p . const . const
