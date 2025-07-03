@@ -152,12 +152,18 @@ rawMatchIn : (multiline : Bool) -> RegExp a -> List Char -> LazyList (List Char,
 rawMatchIn multiline r cs = lazySplits cs >>= \(pre, cs) => rawMatch {beginning=null pre} multiline r cs <&> \(idx, x) =>
   let (mid, post) = splitAt (finToNat $ fromMaybe FZ idx) cs in (asList pre, mid, x, post)
 
+addPreChar : Char -> (List (List Char, List Char, a), List Char) -> (List (List Char, List Char, a), List Char)
+addPreChar p ([]           , post) = ([]                  , p::post)
+addPreChar p ((ppre, r)::rs, post) = ((p :: ppre, r) :: rs, post)
+
 export
 rawMatchAll : (multiline : Bool) -> RegExp a -> List Char -> LazyList (List (List Char, List Char, a), List Char)
 rawMatchAll multiline r cs = case rawMatchIn multiline r cs of
   [] => pure ([], cs)
-  xs => xs >>= \(pre, ms, mx, post) => if null pre then pure ([(pre, ms, mx)], post) else
-    rawMatchAll multiline r (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::)
+  xs => xs >>= \(pre, ms, mx, post) => case (null ms, post) of
+    (True, [])      => pure ([(pre, ms, mx)], post)
+    (True, p::post) => rawMatchAll multiline r (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::) . addPreChar p
+    (False, post)   => rawMatchAll multiline r (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::)
 
 ---------------------------------------
 --- Implementation of the interface ---
