@@ -17,14 +17,14 @@ record TestCase where
 
 printAll : {0 res : _} ->
            (forall s, t. Show t => Show $ res s t) =>
-           (forall ty. RegExp ty -> (s : String) -> LazyList $ res s ty) ->
+           (forall ty. RegExp ty -> (s : List Char) -> LazyList $ res s ty) ->
            LazyList TestCase ->
            IO ()
 printAll sut = Lazy.traverse_ $ \(T {regex, inputs, _}) => do
   putStrLn "\n- regex: \{regex {rx=RegExpText}}"
   Lazy.for_ inputs $ \input => do
     putStrLn "\n  - input string: \"\{input}\":"
-    let result@(_::_) = sut regex input
+    let result@(_::_) = sut regex $ unpack input
       | [] => putStrLn "      <none>"
     Lazy.for_ result $
       putStrLn . ("    - " ++) . show
@@ -39,7 +39,7 @@ abc : Regex rx => rx String
 abc = string "abc"
 
 main : IO ()
-main = printAll (\r, s => rawMatch False r $ unpack s)
+main = printAll (\r, s => rawMatch False r s s)
   [ T (char 'a') ["a", "ab"]
   , T (all [char 'a']) ["a", "ab"]
 

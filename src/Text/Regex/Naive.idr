@@ -103,55 +103,55 @@ isText Line = False
 
 --- Return the index after which the unmatched rest is
 export
-rawMatch : {default True beginning : Bool} -> (multiline : Bool) -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-rawMatch multiline r orig = go' beginning r orig where
-  prev : (curr : List Char) -> Maybe Char
-  prev curr = do
-    let origL = length orig
-    let currL = length curr
-    let True = origL > currL | False => Nothing
-    let prevPos = origL `minus` S currL
-    let Yes _ = inBounds prevPos orig | No _ => Nothing
-    Just $ index prevPos orig
-  go' : forall a. Bool -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-  go : forall a. Bool -> RegExpOp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
-  go' atStart (RE op ma) cs = map @{Compose} ma $ go atStart op cs
-  go atStart (Seq [])          cs      = pure (Nothing, [])
-  go atStart (Seq $ r::rs)     cs      = go' atStart r cs >>= \(idx, x) => do
-                                           let (ds ** f) = precDrop cs $ fromMaybe FZ idx
-                                           let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
-                                               convIdx $ Just i = Just $ f i
-                                               convIdx Nothing  = idx $> f FZ
-                                           postponeNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
-  go atStart (Sel rs)          cs      = postponeNothings $ lazyAllAnies rs >>= \r => go' atStart (assert_smaller rs $ pushOut r) cs
-  go atStart (WordB l r)       cs      = do let wL = map (charClass Word) (prev cs)
-                                            let wR = map (charClass Word) (head' cs)
-                                            let lB = wL /= Just True  && wR /= Just False
-                                            let rB = wL /= Just False && wR /= Just True
-                                            flip whenT (Just 0, ()) $ l && lB || r && rB || not l && not r && not lB && not rB
-  go atStart (WithMatch rs)    cs      = go' atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
-  go atStart rr@(Rep1 r)       cs      = do (Just idx@(FS _), x) <- go' atStart r cs | (idx, x) => pure (idx, singleton x)
-                                            let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
-                                            let sub = filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds)
-                                            sub ++ [(Just idx, singleton x)]
-  go _       (Edge _    End)   []      = pure (Just FZ, ())
-  go _       (Edge Line End)   (c::cs) = whenT (multiline && isNL c) (Just FZ, ())
-  go _       (Edge Text End)   cs      = empty
-  go True    (Edge _    Start) cs      = pure (Just FZ, ())
-  go False   (Edge Line Start) cs      = whenTs multiline $ whenJs (prev cs) $ flip whenT (Just FZ, ()) . isNL
-  go False   (Edge Text Start) cs      = empty
-  go _       (AnyChar m)       []      = empty
-  go _       (AnyChar m)       (c::cs) = whenT (not multiline || isText m || not (isNL c)) (Just 1, c)
-  go _       (Sym _)           []      = empty
-  go _       (Sym f)           (c::cs) = fromList $ toList $ (Just 1,) <$> f c
+rawMatch : (multiline : Bool) -> RegExp a -> (orig, str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+rawMatch multiline r orig str with (length orig)
+  _ | origL = go' (origL == str.length) r str where
+    prev : (curr : List Char) -> Maybe Char
+    prev curr = do
+      let currL = length curr
+      let True = origL > currL | False => Nothing
+      let prevPos = origL `minus` S currL
+      let Yes _ = inBounds prevPos orig | No _ => Nothing
+      Just $ index prevPos orig
+    go' : forall a. Bool -> RegExp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+    go : forall a. Bool -> RegExpOp a -> (str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
+    go' atStart (RE op ma) cs = map @{Compose} ma $ go atStart op cs
+    go atStart (Seq [])          cs      = pure (Nothing, [])
+    go atStart (Seq $ r::rs)     cs      = go' atStart r cs >>= \(idx, x) => do
+                                             let (ds ** f) = precDrop cs $ fromMaybe FZ idx
+                                             let convIdx : Maybe (Fin $ S ds.length) -> Maybe (Fin $ S cs.length)
+                                                 convIdx $ Just i = Just $ f i
+                                                 convIdx Nothing  = idx $> f FZ
+                                             postponeNothings $ bimap convIdx (x::) <$> go (atStart && hasntMove idx) (Seq rs) ds
+    go atStart (Sel rs)          cs      = postponeNothings $ lazyAllAnies rs >>= \r => go' atStart (assert_smaller rs $ pushOut r) cs
+    go atStart (WordB l r)       cs      = do let wL = map (charClass Word) (prev cs)
+                                              let wR = map (charClass Word) (head' cs)
+                                              let lB = wL /= Just True  && wR /= Just False
+                                              let rB = wL /= Just False && wR /= Just True
+                                              flip whenT (Just 0, ()) $ l && lB || r && rB || not l && not r && not lB && not rB
+    go atStart (WithMatch rs)    cs      = go' atStart rs cs <&> \(idx, x) => (idx, maybe id (\i => take (finToNat i)) idx cs, x)
+    go atStart rr@(Rep1 r)       cs      = do (Just idx@(FS _), x) <- go' atStart r cs | (idx, x) => pure (idx, singleton x)
+                                              let (ds ** f) = precDrop cs idx -- can assert `ds < cs` because `idx` is `FS`
+                                              let sub = filter (isJust . fst) $ bimap (map f) ((x:::) . toList) <$> go False rr (assert_smaller cs ds)
+                                              sub ++ [(Just idx, singleton x)]
+    go _       (Edge _    End)   []      = pure (Just FZ, ())
+    go _       (Edge Line End)   (c::cs) = whenT (multiline && isNL c) (Just FZ, ())
+    go _       (Edge Text End)   cs      = empty
+    go True    (Edge _    Start) cs      = pure (Just FZ, ())
+    go False   (Edge Line Start) cs      = whenTs multiline $ whenJs (prev cs) $ flip whenT (Just FZ, ()) . isNL
+    go False   (Edge Text Start) cs      = empty
+    go _       (AnyChar m)       []      = empty
+    go _       (AnyChar m)       (c::cs) = whenT (not multiline || isText m || not (isNL c)) (Just 1, c)
+    go _       (Sym _)           []      = empty
+    go _       (Sym f)           (c::cs) = fromList $ toList $ (Just 1,) <$> f c
 
 lazySplits : List a -> LazyList (SnocList a, List a)
 lazySplits []          = pure ([<], [])
 lazySplits xxs@(x::xs) = ([<], xxs) :: (mapFst (:< x) <$> lazySplits xs)
 
 export
-rawMatchIn : (multiline : Bool) -> RegExp a -> List Char -> LazyList (List Char, List Char, a, List Char)
-rawMatchIn multiline r cs = lazySplits cs >>= \(pre, cs) => rawMatch {beginning=null pre} multiline r cs <&> \(idx, x) =>
+rawMatchIn : (multiline : Bool) -> RegExp a -> (orig, curr : List Char) -> LazyList (List Char, List Char, a, List Char)
+rawMatchIn multiline r orig cs = lazySplits cs >>= \(pre, cs) => rawMatch multiline r orig cs <&> \(idx, x) =>
   let (mid, post) = splitAt (finToNat $ fromMaybe FZ idx) cs in (asList pre, mid, x, post)
 
 addPreChar : Char -> (List (List Char, List Char, a), List Char) -> (List (List Char, List Char, a), List Char)
@@ -159,13 +159,13 @@ addPreChar p ([]           , post) = ([]                  , p::post)
 addPreChar p ((ppre, r)::rs, post) = ((p :: ppre, r) :: rs, post)
 
 export
-rawMatchAll : (multiline : Bool) -> RegExp a -> List Char -> LazyList (List (List Char, List Char, a), List Char)
-rawMatchAll multiline r cs = case rawMatchIn multiline r cs of
+rawMatchAll : (multiline : Bool) -> RegExp a -> (orig, curr : List Char) -> LazyList (List (List Char, List Char, a), List Char)
+rawMatchAll multiline r orig cs = case rawMatchIn multiline r orig cs of
   [] => pure ([], cs)
   xs => xs >>= \(pre, ms, mx, post) => case (null ms, post) of
     (True, [])      => pure ([(pre, ms, mx)], post)
-    (True, p::post) => rawMatchAll multiline r (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::) . addPreChar p
-    (False, post)   => rawMatchAll multiline r (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::)
+    (True, p::post) => rawMatchAll multiline r orig (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::) . addPreChar p
+    (False, post)   => rawMatchAll multiline r orig (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::)
 
 ---------------------------------------
 --- Implementation of the interface ---
@@ -191,11 +191,13 @@ namespace Matcher
   export
   [Naive] TextMatcher RegExp where
     matchWhole' multiline r str = do
-      (idx, x) <- head' $ rawMatch multiline r $ unpack str
+      let str = unpack str
+      (idx, x) <- head' $ rawMatch multiline r str str
       guard (fromMaybe FZ idx /= last) $> x
-    matchInside' multiline r str =
-      head' (rawMatchIn multiline r $ unpack str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
-    matchAll' multiline r str = maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll multiline r $ unpack str where
+    matchInside' multiline r str = do
+      let str = unpack str
+      head' (rawMatchIn multiline r str str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
+    matchAll' multiline r str = let ustr = unpack str in maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll multiline r ustr ustr where
       conv : List (List Char, List Char, a) -> (end : List Char) -> AllMatchedInside a
       conv stmids end = foldr (\(pre, ms, mx), ami => Match (pack pre) (pack ms) mx ami) (Stop $ pack end) stmids
 
