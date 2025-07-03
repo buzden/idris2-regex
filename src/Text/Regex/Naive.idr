@@ -189,6 +189,6 @@ namespace Matcher
       head' (rawMatchIn multiline r $ unpack str) <&> \(pre, mid, x, post) => MkOneMatchInside (pack pre) (pack mid) x (pack post)
     matchAll' multiline r str = maybe (Stop str) (uncurry conv) $ head' $ rawMatchAll multiline r $ unpack str where
       conv : List (List Char, List Char, a) -> (end : List Char) -> AllMatchedInside a
-      conv stmids end = foldl (\ami, (pre, ms, mx) => Match (pack pre) (pack ms) mx ami) (Stop $ pack end) stmids
+      conv stmids end = foldr (\(pre, ms, mx), ami => Match (pack pre) (pack ms) mx ami) (Stop $ pack end) stmids
 
   public export %hint TextMatcherRegExp : TextMatcher RegExp; TextMatcherRegExp = Naive
