@@ -1,7 +1,6 @@
 ||| Parser of extended POSIX regular expressions with (hopefully) unambiguous extensions from PCRE.
 module Text.Regex.Parser.ERE
 
-import Data.Alternative
 import Data.Bits
 import public Data.Either
 import public Data.DPair
@@ -45,6 +44,7 @@ data RxLex
   | Alt -- |
   | Post RxLex PostfixOp
 
+public export
 postfixOp : Regex rx => PostfixOp -> rx a -> Exists rx
 postfixOp Rep0         = Evidence _ . rep
 postfixOp Rep1         = Evidence _ . rep1
@@ -148,6 +148,7 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
 --- Parsing ---
 ---------------
 
+public export
 crumple : Monoid a => {0 f : _} ->
           List (n ** f $ Vect n a) ->
           Exists $ \tys => (All f tys, (n ** (All Prelude.id tys -> Vect n a, Any Prelude.id tys -> Vect n a)))
@@ -159,15 +160,14 @@ crumple ((n ** r) :: rs) = do
       spreadAny $ There x = replicate n neutral ++ cAny x
   Evidence _ (r::rs, (_ ** (\(x::xs) => x ++ cAll xs, spreadAny)))
 
-concatAll : Regex rx => List (n ** rx $ Vect n String) -> (n ** rx $ Vect n String)
-concatAll xs = let Evidence _ (rs, MkDPair _ (conv, _)) = crumple xs in (_ ** conv <$> all rs)
-
 -- Operation priorities:
 -- - highest: postfix ops: *, +, ?, {..}
 -- - middle: sequencing
 -- - low: infix op: |
 parseRegex' : Regex rx => List RxLex -> Exists $ \n => rx $ Vect n String
-parseRegex' @{rxi} = alts where
+parseRegex' = alts where
+  concatAll : List (n ** rx $ Vect n String) -> (n ** rx $ Vect n String)
+  concatAll xs = let Evidence _ (rs, MkDPair _ (conv, _)) = crumple xs in (_ ** conv <$> all rs)
   alts : List RxLex -> Exists $ \n => rx $ Vect n String
   conseq : List RxLex -> List (n ** rx $ Vect n String)
   alts lxs = do
