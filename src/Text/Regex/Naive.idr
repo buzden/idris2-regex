@@ -81,31 +81,32 @@ Alternative RegExp where
 --- Interpreter ---
 -------------------
 
-precDrop : (xs : List a) -> (n : Fin $ S xs.length) -> (ys : List a ** Fin (S ys.length) -> Fin (S xs.length))
-precDrop xs      FZ     = (xs ** id)
-precDrop (x::xs) (FS i) = let (ys ** f) = precDrop xs i in (ys ** FS . f)
-
-lazyAllAnies : All p xs -> LazyList (Any p xs)
-lazyAllAnies [] = []
-lazyAllAnies (x::xs) = Here x :: map There (lazyAllAnies xs)
-
-hasntMove : Maybe (Fin $ S n) -> Bool
-hasntMove Nothing       = True
-hasntMove (Just FZ)     = True
-hasntMove (Just $ FS _) = False
-
-postponeNothings : LazyList (Maybe a, b) -> LazyList (Maybe a, b)
-postponeNothings xs = filter (isJust . fst) xs ++ filter (not . isJust . fst) xs
-
-isText : LineMode -> Bool
-isText Text = True
-isText Line = False
-
 --- Return the index after which the unmatched rest is
-export
+public export
 rawMatch : (multiline : Bool) -> RegExp a -> (orig, str : List Char) -> LazyList (Maybe $ Fin $ S str.length, a)
 rawMatch multiline r orig str with (length orig)
   _ | origL = go' (origL == str.length) r str where
+
+    precDrop : forall a. (xs : List a) -> (n : Fin $ S xs.length) -> (ys : List a ** Fin (S ys.length) -> Fin (S xs.length))
+    precDrop xs      FZ     = (xs ** id)
+    precDrop (x::xs) (FS i) = let (ys ** f) = precDrop xs i in (ys ** FS . f)
+
+    lazyAllAnies : All p xs -> LazyList (Any p xs)
+    lazyAllAnies [] = []
+    lazyAllAnies (x::xs) = Here x :: map There (lazyAllAnies xs)
+
+    hasntMove : Maybe (Fin $ S n) -> Bool
+    hasntMove Nothing       = True
+    hasntMove (Just FZ)     = True
+    hasntMove (Just $ FS _) = False
+
+    postponeNothings : forall a, b. LazyList (Maybe a, b) -> LazyList (Maybe a, b)
+    postponeNothings xs = filter (isJust . fst) xs ++ filter (not . isJust . fst) xs
+
+    isText : LineMode -> Bool
+    isText Text = True
+    isText Line = False
+
     prev : (curr : List Char) -> Maybe Char
     prev curr = do
       let currL = length curr
@@ -145,20 +146,16 @@ rawMatch multiline r orig str with (length orig)
     go _       (Sym _)           []      = empty
     go _       (Sym f)           (c::cs) = fromList $ toList $ (Just 1,) <$> f c
 
-lazySplits : List a -> LazyList (SnocList a, List a)
-lazySplits []          = pure ([<], [])
-lazySplits xxs@(x::xs) = ([<], xxs) :: (mapFst (:< x) <$> lazySplits xs)
-
-export
+public export
 rawMatchIn : (multiline : Bool) -> RegExp a -> (orig, curr : List Char) -> LazyList (List Char, List Char, a, List Char)
 rawMatchIn multiline r orig cs = lazySplits cs >>= \(pre, cs) => rawMatch multiline r orig cs <&> \(idx, x) =>
   let (mid, post) = splitAt (finToNat $ fromMaybe FZ idx) cs in (asList pre, mid, x, post)
+  where
+    lazySplits : forall a. List a -> LazyList (SnocList a, List a)
+    lazySplits []          = pure ([<], [])
+    lazySplits xxs@(x::xs) = ([<], xxs) :: (mapFst (:< x) <$> lazySplits xs)
 
-addPreChar : Char -> (List (List Char, List Char, a), List Char) -> (List (List Char, List Char, a), List Char)
-addPreChar p ([]           , post) = ([]                  , p::post)
-addPreChar p ((ppre, r)::rs, post) = ((p :: ppre, r) :: rs, post)
-
-export
+public export
 rawMatchAll : (multiline : Bool) -> RegExp a -> (orig, curr : List Char) -> LazyList (List (List Char, List Char, a), List Char)
 rawMatchAll multiline r orig cs = case rawMatchIn multiline r orig cs of
   [] => pure ([], cs)
@@ -166,6 +163,10 @@ rawMatchAll multiline r orig cs = case rawMatchIn multiline r orig cs of
     (True, [])      => pure ([(pre, ms, mx)], post)
     (True, p::post) => rawMatchAll multiline r orig (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::) . addPreChar p
     (False, post)   => rawMatchAll multiline r orig (assert_smaller cs post) <&> mapFst ((pre, ms, mx) ::)
+  where
+    addPreChar : forall a. Char -> (List (List Char, List Char, a), List Char) -> (List (List Char, List Char, a), List Char)
+    addPreChar p ([]           , post) = ([]                  , p::post)
+    addPreChar p ((ppre, r)::rs, post) = ((p :: ppre, r) :: rs, post)
 
 ---------------------------------------
 --- Implementation of the interface ---
@@ -173,7 +174,7 @@ rawMatchAll multiline r orig cs = case rawMatchIn multiline r orig cs of
 
 namespace Regex
 
-  export
+  public export
   [Naive] Regex RegExp where
     sym'         = (`RE` id) . Sym
     anyChar      = (`RE` id) . AnyChar
@@ -188,7 +189,7 @@ namespace Regex
 
 namespace Matcher
 
-  export
+  public export
   [Naive] TextMatcher RegExp where
     matchWhole' multiline r str = do
       let str = unpack str
