@@ -44,6 +44,7 @@ data RxLex
   | Alt -- |
   | Post RxLex PostfixOp
 
+public export
 postfixOp : Regex rx => PostfixOp -> rx a -> Exists rx
 postfixOp Rep0         = Evidence _ . rep
 postfixOp Rep1         = Evidence _ . rep1
@@ -63,17 +64,6 @@ data CtxtNesting : Type where
   E : CtxtNesting
   G : LexCtxt -> (matching : Bool) -> (openingPos : Nat) -> CtxtNesting
 
-push : LexCtxt -> RxLex -> LexCtxt
-push (MkLexCtxt ch $ ls :< C l) (C r) = MkLexCtxt ch $ ls :< C (l ++ r)
-push (MkLexCtxt ch ls)          l     = MkLexCtxt ch $ ls :< l
-
-pushPostfix : (pos : Lazy Nat) -> LexCtxt -> PostfixOp -> Either BadRegex LexCtxt
-pushPostfix pos (MkLexCtxt ch $ sx :< C (cs@(_:<_) :< last)) op = pure $ MkLexCtxt ch $ sx :< C cs :< Post (C [<last]) op
-pushPostfix pos (MkLexCtxt ch $ sx :< Alt                  ) _  = Left $ RegexIsBad pos "illegal postfix operator after `|`"
-pushPostfix pos (MkLexCtxt ch $ sx :< Post {}              ) _  = Left $ RegexIsBad pos "illegal or unsupported double postfix operator"
-pushPostfix pos (MkLexCtxt ch $ sx :< x                    ) op = pure $ MkLexCtxt ch $ sx :< Post x op
-pushPostfix pos _                                            _  = Left $ RegexIsBad pos "nothing to apply the postfix operator"
-
 lexERE : List Char -> Either BadRegex $ SnocList RxLex
 lexERE orig = go (MkLexCtxt E [<]) orig where
   orL : Nat
@@ -82,6 +72,18 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
   pos xs = orL `minus` length xs
   quotableChars : List Char
   quotableChars = unpack ".^$|(){}?*+"
+
+  push : LexCtxt -> RxLex -> LexCtxt
+  push (MkLexCtxt ch $ ls :< C l) (C r) = MkLexCtxt ch $ ls :< C (l ++ r)
+  push (MkLexCtxt ch ls)          l     = MkLexCtxt ch $ ls :< l
+
+  pushPostfix : (tail : List Char) -> LexCtxt -> PostfixOp -> Either BadRegex LexCtxt
+  pushPostfix _    (MkLexCtxt ch $ sx :< C (cs@(_:<_) :< last)) op = pure $ MkLexCtxt ch $ sx :< C cs :< Post (C [<last]) op
+  pushPostfix tail (MkLexCtxt ch $ sx :< Alt                  ) _  = Left $ RegexIsBad (pos tail) "illegal postfix operator after `|`"
+  pushPostfix tail (MkLexCtxt ch $ sx :< Post {}              ) _  = Left $ RegexIsBad (pos tail) "illegal or unsupported double postfix operator"
+  pushPostfix _    (MkLexCtxt ch $ sx :< x                    ) op = pure $ MkLexCtxt ch $ sx :< Post x op
+  pushPostfix tail _                                            _  = Left $ RegexIsBad (pos tail) "nothing to apply the postfix operator"
+
   go : LexCtxt -> List Char -> Either BadRegex $ SnocList RxLex
   go (MkLexCtxt E curr)       [] = pure curr
   go (MkLexCtxt (G _ _ op) _) [] = Left $ RegexIsBad op "unmatched opening parenthesis"
@@ -96,20 +98,20 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
   go (MkLexCtxt (G ctx mtch op) ls) $ ')' :: xs = go (push ctx $ Group mtch ls) xs
   go ctx xxs@('['::'^' :: xs) = parseCharsSet (pos xxs) orL True [<] xs >>= \(rest, cs) => go (push ctx $ Cs False cs) $ assert_smaller xs rest
   go ctx xxs@('['      :: xs) = parseCharsSet (pos xxs) orL True [<] xs >>= \(rest, cs) => go (push ctx $ Cs True  cs) $ assert_smaller xs rest
-  go ctx xxs@('*' :: xs) = go !(pushPostfix (pos xxs) ctx Rep0) xs
-  go ctx xxs@('+' :: xs) = go !(pushPostfix (pos xxs) ctx Rep1) xs
-  go ctx xxs@('?' :: xs) = go !(pushPostfix (pos xxs) ctx Opt) xs
+  go ctx xxs@('*' :: xs) = go !(pushPostfix xxs ctx Rep0) xs
+  go ctx xxs@('+' :: xs) = go !(pushPostfix xxs ctx Rep1) xs
+  go ctx xxs@('?' :: xs) = go !(pushPostfix xxs ctx Opt) xs
   go ctx xxs@('{' :: xs) = do let (bnds, rest) = span (/= '}') xs
                               let '}' :: rest = rest | _ => Left $ RegexIsBad (pos xxs) "unmatched opening curly bracket"
                               let posxs : Lazy Nat := pos xs
                               let l@(_::_):::r@(_::_)::[] = split (== ',') bnds
-                                | l:::[]     => parseNat 10 posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN n) $ assert_smaller xs rest
-                                | []:::r::[] => parseNat 10 posxs r >>= \m => go !(pushPostfix (pos xxs) ctx $ Rep_M m) $ assert_smaller xs rest
-                                | l:::[]::[] => parseNat 10 posxs l >>= \n => go !(pushPostfix (pos xxs) ctx $ RepN_ n) $ assert_smaller xs rest
+                                | l:::[]     => parseNat 10 posxs l >>= \n => go !(pushPostfix xxs ctx $ RepN n) $ assert_smaller xs rest
+                                | []:::r::[] => parseNat 10 posxs r >>= \m => go !(pushPostfix xxs ctx $ Rep_M m) $ assert_smaller xs rest
+                                | l:::[]::[] => parseNat 10 posxs l >>= \n => go !(pushPostfix xxs ctx $ RepN_ n) $ assert_smaller xs rest
                                 | _          => Left $ RegexIsBad posxs "too many commas in the bounds, zero or one is expected"
                               r <- parseNat 10 (1 + posxs + length l) r; l <- parseNat 10 posxs l
                               let Yes lr = isLTE l r | No _ => Left $ RegexIsBad posxs "left bound must not be greater than right bound"
-                              go !(pushPostfix (pos xxs) ctx $ RepNM l r) $ assert_smaller xs rest
+                              go !(pushPostfix xxs ctx $ RepNM l r) $ assert_smaller xs rest
   go ctx $ '\\'::'X' :: xs = go (push ctx $ AnyC Text) xs
   go ctx $ '\\'::'A' :: xs = go (push ctx $ Edge Text Start) xs
   go ctx $ '\\'::'z' :: xs = go (push ctx $ Edge Text End) xs
@@ -151,6 +153,7 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
 --- Parsing ---
 ---------------
 
+public export
 crumple : Monoid a => {0 f : _} ->
           List (n ** f $ Vect n a) ->
           Exists $ \tys => (All f tys, (n ** (All Prelude.id tys -> Vect n a, Any Prelude.id tys -> Vect n a)))
@@ -162,15 +165,14 @@ crumple ((n ** r) :: rs) = do
       spreadAny $ There x = replicate n neutral ++ cAny x
   Evidence _ (r::rs, (_ ** (\(x::xs) => x ++ cAll xs, spreadAny)))
 
-concatAll : Regex rx => List (n ** rx $ Vect n String) -> (n ** rx $ Vect n String)
-concatAll xs = let Evidence _ (rs, MkDPair _ (conv, _)) = crumple xs in (_ ** conv <$> all rs)
-
 -- Operation priorities:
 -- - highest: postfix ops: *, +, ?, {..}
 -- - middle: sequencing
 -- - low: infix op: |
 parseRegex' : Regex rx => List RxLex -> Exists $ \n => rx $ Vect n String
 parseRegex' = alts where
+  concatAll : List (n ** rx $ Vect n String) -> (n ** rx $ Vect n String)
+  concatAll xs = let Evidence _ (rs, MkDPair _ (conv, _)) = crumple xs in (_ ** conv <$> all rs)
   alts : List RxLex -> Exists $ \n => rx $ Vect n String
   conseq : List RxLex -> List (n ** rx $ Vect n String)
   alts lxs = do
