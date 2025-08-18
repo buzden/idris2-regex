@@ -81,6 +81,8 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
   orL = length orig
   pos : (left : List Char) -> Nat
   pos xs = orL `minus` length xs
+  quotableChars : List Char
+  quotableChars = unpack ".^$|(){}?*+"
   go : LexCtxt -> List Char -> Either BadRegex $ SnocList RxLex
   go (MkLexCtxt E curr)       [] = pure curr
   go (MkLexCtxt (G _ _ op) _) [] = Left $ RegexIsBad op "unmatched opening parenthesis"
@@ -141,7 +143,9 @@ lexERE orig = go (MkLexCtxt E [<]) orig where
     go (push ctx $ C [< chr $ cast n]) $ assert_smaller xs rest
   go ctx $ '\\'::'x'::ulxs@(u::l :: xs) = parseNat 16 (pos ulxs) [u,l] >>= \n => go (push ctx $ C [< chr $ cast n]) xs
   go ctx xxs@('\\'::'x':: xs) = Left $ RegexIsBad (pos xxs) "bad hex character command, use formats \xFF or \x{FFF...}"
-  go ctx $ '\\'::xxs@(x::_) = Left $ RegexIsBad (pos xxs) "unknown quote character '\\\{show x}'"
+  go ctx $ '\\'::xxs@(x::xs) = if x `elem` quotableChars
+    then go (push ctx $ C [<x]) xs
+    else Left $ RegexIsBad (pos xxs) "unknown quote character '\\\{show x}'"
   go ctx $ x :: xs = go (push ctx $ C [<x]) xs
 
 ---------------
