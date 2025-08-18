@@ -19,7 +19,7 @@ record OneMatchInside a where
   matchedVal    : a
   unmatchedPost : String
 
-export
+public export %inline
 forgetVal : OneMatchInside a -> (String, String, String)
 forgetVal $ MkOneMatchInside pre str _ post = (pre, str, post)
 

@@ -1,7 +1,6 @@
 ||| Parser of extended POSIX regular expressions with (hopefully) unambiguous extensions from PCRE.
 module Text.Regex.Parser.ERE
 
-import Data.Alternative
 import Data.Bits
 import public Data.Either
 import public Data.DPair
@@ -167,7 +166,7 @@ concatAll xs = let Evidence _ (rs, MkDPair _ (conv, _)) = crumple xs in (_ ** co
 -- - middle: sequencing
 -- - low: infix op: |
 parseRegex' : Regex rx => List RxLex -> Exists $ \n => rx $ Vect n String
-parseRegex' @{rxi} = alts where
+parseRegex' = alts where
   alts : List RxLex -> Exists $ \n => rx $ Vect n String
   conseq : List RxLex -> List (n ** rx $ Vect n String)
   alts lxs = do
