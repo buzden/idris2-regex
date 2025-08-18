@@ -1,7 +1,10 @@
 module Text.Matcher
 
+import public Data.Maybe -- reexporting for `IsJust` in `MatchesWhole` and friends
 import Data.SnocList
 import Data.Vect
+
+import Decidable.Decidable
 
 import Syntax.IHateParens.Function
 
@@ -106,6 +109,22 @@ parameters {default False multiline : Bool}
     rep : SnocList String -> AllMatchedInside a -> SnocList String
     rep acc $ Stop post                  = acc :< post
     rep acc $ Match pre matched val cont = rep .| acc :< pre :< replacement matched val .| cont
+
+  public export %inline
+  MatchesWhole : TextMatcher tm => tm a -> String -> Type
+  MatchesWhole = IsJust .: matchWhole
+
+  public export %inline
+  MatchesInside : TextMatcher tm => tm a -> String -> Type
+  MatchesInside = IsJust .: matchInside
+
+  public export %inline
+  doesMatchWhole : TextMatcher tm => (matcher : tm a) -> (input : String) -> Dec $ MatchesWhole matcher input
+  doesMatchWhole _ _ = isItJust _
+
+  public export %inline
+  doesMatchInside : TextMatcher tm => (matcher : tm a) -> (input : String) -> Dec $ MatchesInside matcher input
+  doesMatchInside _ _ = isItJust _
 
 --- Modifiers for replacement functions ---
 
