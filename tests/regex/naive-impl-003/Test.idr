@@ -76,6 +76,7 @@ naiveMatchesPerl regex = MkPair (fromString "particular expression \{regex}, ins
   classify "perl didn't match" $ mp == Nothing
   classify "naive matched" $ isJust mn
   classify "naive didn't match" $ mn == Nothing
+  annotateAllShow [mp, mn]
   mp === mn
 
 covering
@@ -86,6 +87,7 @@ main = test
     , naiveMatchesPerl #".+(a|b|c)"#
     , naiveMatchesPerl #".+.+.+(a|b|c)"#
     , naiveMatchesPerl #"[abc]+.+.?(a|b|c)"#
+    , naiveMatchesPerl #"[a\-z\.]*"#
     , naiveMatchesPerl #"^[^a-c-d]{,4}"#
     , naiveMatchesPerl #"..?[[:digit:]]"#
     , naiveMatchesPerl #".?.?[[:digit:]]"#
