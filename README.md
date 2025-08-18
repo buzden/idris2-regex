@@ -117,7 +117,7 @@ main_replacements = traverse_ printLn [r1, r2, r3, r4, r5, r6]
 This library is still under construction.
 There are a lot of things still wanted or missing, for example:
 
-- type-level predicates for conforming a string to a regular expression;
+- better efficiency of compile-time parsing of strings;
 - nice DSL for building regular expressions (e.g. using postfix functions);
 - better efficiency of the naive implementation or alternative default implementation;
 - support nested matching groups by the parser;
