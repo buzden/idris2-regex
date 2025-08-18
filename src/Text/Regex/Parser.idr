@@ -22,12 +22,14 @@ data BadRegex : Type where
 
 data BracketChars
   = One Char
+  | RangeOpen Char
   | Class Bool CharClass -- False means negation of this char class
   | Range Char Char
 
 public export
 matchesBracket : Char -> BracketChars -> Bool
 matchesBracket c $ One k       = c == k
+matchesBracket c $ RangeOpen k = c == k
 matchesBracket c $ Class nn cl = nn == charClass cl c
 matchesBracket c $ Range l r   = l <= c && c <= r
 
@@ -87,9 +89,6 @@ parseCharsSet stL orL start curr $ '\\'::'x'::ulxs@(u::l :: xs) = do
 parseCharsSet stL orL start curr xxs@('\\'::'x':: xs) =
   Left $ RegexIsBad (orL `minus` length xxs) "bad hex character command, use formats \xFF or \x{FFF...}"
 parseCharsSet stL orL start curr $ '\\'::x :: xs = parseCharsSet stL orL False (curr :< One x) xs
-parseCharsSet stL orL start curr lrxs@(l::'-'::r :: xs) = if l <= r
-  then parseCharsSet stL orL False (curr :< Range l r) xs
-  else Left $ RegexIsBad (orL `minus` length lrxs) "invalid range, left is greater than `right"
 parseCharsSet stL orL start curr $ '['::':'::'u'::'p'::'p'::'e'::'r'::':'::']'      :: xs = parseCharsSet stL orL False (curr :< Class True Upper) xs
 parseCharsSet stL orL start curr $ '['::':'::'l'::'o'::'w'::'e'::'r'::':'::']'      :: xs = parseCharsSet stL orL False (curr :< Class True Lower) xs
 parseCharsSet stL orL start curr $ '['::':'::'a'::'l'::'p'::'h'::'a'::':'::']'      :: xs = parseCharsSet stL orL False (curr :< Class True Alpha) xs
@@ -104,4 +103,8 @@ parseCharsSet stL orL start curr $ '['::':'::'g'::'r'::'a'::'p'::'h'::':'::']'  
 parseCharsSet stL orL start curr $ '['::':'::'p'::'r'::'i'::'n'::'t'::':'::']'      :: xs = parseCharsSet stL orL False (curr :< Class True Print) xs
 parseCharsSet stL orL start curr $ '['::':'::'a'::'s'::'c'::'i'::'i'::':'::']'      :: xs = parseCharsSet stL orL False (curr :< Class True Ascii) xs
 parseCharsSet stL orL start curr $ '['::':'::'w'::'o'::'r'::'d'::':'::']'           :: xs = parseCharsSet stL orL False (curr :< Class True Word) xs
+parseCharsSet stL orL start (curr :< RangeOpen l :< One '-') rxs@(r :: xs) = if l <= r -- finish the range operator
+  then parseCharsSet stL orL False (curr :< Range l r) xs
+  else Left $ RegexIsBad (orL `minus` 1 + length rxs) "invalid range, left is greater than `right"
+parseCharsSet stL orL start curr (l::'-' :: xs) = parseCharsSet stL orL False (curr :< RangeOpen l :< One '-') xs -- start the range operator
 parseCharsSet stL orL start curr (x :: xs) = parseCharsSet stL orL False (curr :< One x) xs

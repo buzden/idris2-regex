@@ -68,7 +68,7 @@ naiveMatchesPerl : (regex : String) -> (PropertyName, Property)
 naiveMatchesPerl regex = MkPair (fromString "particular expression \{regex}, inside, single-line mode") $ property $ do
   case parseRegex {rx=RegExpText} regex of
     Right (Evidence _ p) => annotate "\{p}"
-    Left _               => pure ()
+    Left (RegexIsBad pos reason) => annotate "regex is bad at \{show pos}: \{reason}"
   str <- forAll $ string (constant 0 100) (char $ constant ' ' '\x7E')
   let mp = matchPerl regex str
   let mn = matchNaive regex str
@@ -87,7 +87,8 @@ main = test
     , naiveMatchesPerl #".+(a|b|c)"#
     , naiveMatchesPerl #".+.+.+(a|b|c)"#
     , naiveMatchesPerl #"[abc]+.+.?(a|b|c)"#
-    , naiveMatchesPerl #"[a\-z\.]*"#
+    , naiveMatchesPerl #"^[az.-]+$"#
+    , naiveMatchesPerl #"^[a\-z\.]+$"#
     , naiveMatchesPerl #"^[^a-c-d]{,4}"#
     , naiveMatchesPerl #"..?[[:digit:]]"#
     , naiveMatchesPerl #".?.?[[:digit:]]"#
