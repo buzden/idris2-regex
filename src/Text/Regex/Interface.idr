@@ -94,6 +94,12 @@ export %inline
 omega : Regex rx => rx ()
 omega = pure ()
 
+export infixr 7 `thenGoes`
+||| Simple consequent composition
+public export %inline
+thenGoes : Regex rx => rx a -> rx b -> rx (a, b)
+thenGoes x y = [| (x, y) |]
+
 --- Special chars ---
 
 export %inline
