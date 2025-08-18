@@ -90,7 +90,7 @@ interface Alternative rx => Regex rx where
 --- Special general cases ---
 
 ||| Always matches without consuming any symbol.
-export %inline
+public export %inline
 omega : Regex rx => rx ()
 omega = pure ()
 
@@ -102,20 +102,20 @@ thenGoes x y = [| (x, y) |]
 
 --- Special chars ---
 
-export %inline
+public export %inline
 anyOf : Regex rx => List Char -> rx Char
 anyOf cs = sym (`elem` cs)
 
-export %inline
+public export %inline
 noneOf : Regex rx => List Char -> rx Char
 noneOf cs = sym $ not . (`elem` cs)
 
-export %inline
+public export %inline
 between : Regex rx => Char -> Char -> rx Char
 between l r = sym $ \k => l <= k && k <= r
 
 ||| Either "\r\n" or any of '\n', '\r' or '\v'
-export
+public export
 genericNL : Regex rx => rx String
 genericNL = string "\x0d\x0a" <|> map singleton (anyOf ['\n', '\r', '\v'])
 
@@ -124,7 +124,7 @@ data CharClass
   = Alpha | Digit | XDigit | Alnum | Upper | Lower | Word
   | Cntrl | Space | Blank | Graph | Print | Ascii | Punct
 
-export %tcinline
+public export %tcinline
 charClass : CharClass -> Char -> Bool
 charClass Alpha    = isAlpha
 charClass Digit    = isDigit
@@ -143,7 +143,7 @@ charClass Punct    = \c => charClass Graph c && not (isSpace c) && not (isAlphaN
 
 --- Special combinations ---
 
-export
+public export
 parseDigit : (base : Nat) -> (0 _ : So (2 <= base && base <= 36)) => Char -> Maybe $ Fin base
 parseDigit base@(S _) c = do
   let tofin = \n => fromMaybe FZ {- must never happen -} $ integerToFin (cast n) base
@@ -156,7 +156,7 @@ parseDigit base@(S _) c = do
   whenT pred $ tofin $ if c <= '9' then ord c - ord0 else ord c - ordA + 10
 
 ||| A digit of given base
-export
+public export
 digit' : Regex rx => (base : Nat) -> (0 _ : So (2 <= base && base <= 36)) => rx $ Fin base
 digit' base = sym' $ parseDigit base
 
@@ -166,7 +166,7 @@ digit : Regex rx => rx $ Fin 10
 digit = digit' 10
 
 ||| A natural number regex without any sign
-export
+public export
 naturalNumber' : Regex rx => (base : Nat) ->  (0 _ : So (2 <= base && base <= 36)) => rx Nat
 naturalNumber' base = rep1 (digit' base) <&> \(h:::tl) => go (cast h) tl where
   go : Nat -> List (Fin base) -> Nat
