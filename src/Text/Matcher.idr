@@ -1,5 +1,6 @@
 module Text.Matcher
 
+import public Data.Maybe -- reexporting for `IsJust` in `MatchesWhole` and friends
 import Data.SnocList
 import Data.Vect
 
@@ -106,6 +107,14 @@ parameters {default False multiline : Bool}
     rep : SnocList String -> AllMatchedInside a -> SnocList String
     rep acc $ Stop post                  = acc :< post
     rep acc $ Match pre matched val cont = rep .| acc :< pre :< replacement matched val .| cont
+
+  public export %inline
+  MatchesWhole : TextMatcher tm => tm a -> String -> Type
+  MatchesWhole = IsJust .: matchWhole
+
+  public export %inline
+  MatchesInside : TextMatcher tm => tm a -> String -> Type
+  MatchesInside = IsJust .: matchInside
 
 --- Modifiers for replacement functions ---
 
