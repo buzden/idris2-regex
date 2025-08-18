@@ -3,6 +3,7 @@
   ✓ particular expression .+(a|b|c), inside, single-line mode passed 100 tests.
   ✓ particular expression .+.+.+(a|b|c), inside, single-line mode passed 100 tests.
   ✓ particular expression [abc]+.+.?(a|b|c), inside, single-line mode passed 100 tests.
+  ✓ particular expression [a\-z\.]*, inside, single-line mode passed 100 tests.
   ✓ particular expression ^[^a-c-d]{,4}, inside, single-line mode passed 100 tests.
   ✓ particular expression ..?[[:digit:]], inside, single-line mode passed 100 tests.
   ✓ particular expression .?.?[[:digit:]], inside, single-line mode passed 100 tests.
@@ -11,4 +12,4 @@
   ✓ particular expression ^(?:[^a-c-d]{,4})?[[:digit:]], inside, single-line mode passed 100 tests.
   ✓ particular expression ^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+.*, inside, single-line mode passed 100 tests.
   ✓ particular expression ^(?:(?:[^a-c-d]{,4})?[[:digit:]ab\x4F\x{004f}])+(?:.*)+, inside, single-line mode passed 100 tests.
-  ✓ 12 succeeded.
+  ✓ 13 succeeded.
