@@ -3,7 +3,9 @@ module Test
 import Text.Regex
 
 data FancyString : Type where
-  MkFStr : (str : String) -> (0 _ : MatchesWhole ("1.*2|21".erx <|> the (RegExp _) "21".erx <|> the (RegExp _) "21".erx) str) => FancyString
+  MkFStr : (str : String) ->
+           (0 _ : MatchesWhole ("1.*2|21".erx <|> the (RegExp _) [| (\_, _ => []) "2".erx "1".erx |] <|> the (RegExp _) "21".erx) str) =>
+           FancyString
 
 fs1 : FancyString
 fs1 = MkFStr "12"
@@ -15,7 +17,9 @@ fs3 : FancyString
 fs3 = MkFStr "21"
 
 data FancierString : Type where
-  MkFerStr : (str : String) -> (0 _ : MatchesInside ("1.*2|21".erx <|> the (RegExp _) "21".erx <|> the (RegExp _) "21".erx) str) => FancierString
+  MkFerStr : (str : String) ->
+             (0 _ : MatchesInside ("1.*2|21".erx <|> the (RegExp _) [| (\_, _ => []) "2".erx "1".erx |] <|> the (RegExp _) "21".erx) str) =>
+             FancierString
 
 fers1 : FancierString
 fers1 = MkFerStr "12"

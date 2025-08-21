@@ -177,8 +177,8 @@ parseRegex' = alts where
   conseq : List RxLex -> List (n ** rx $ Vect n String)
   alts lxs = do
     let alts = forget $ concatAll . assert_total conseq <$> List.split (\case Alt => True; _ => False) lxs
-    let Evidence tys (alts, (n ** (_, conv))) = crumple alts
-    Evidence _ $ map conv $ exists alts
+    let Evidence _ (alts, (n ** (_, conv))) = crumple alts
+    Evidence _ $ conv <$> exists alts
   conseq [] = pure (_ ** pure [])
   conseq $ C [<c]         :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ char c
   conseq $ C cs           :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ string (pack $ cast cs)
