@@ -72,6 +72,8 @@ public export
 Alternative RegExp where
   empty = Sel [] `RE` \case _ impossible
 
+  l              <|> RE (Sel []) _  = l
+  RE (Sel []) _  <|> r              = r
   RE (Sel ls) ml <|> RE (Sel rs) mr = Sel (ls ++ rs) `RE` altWith ls ml mr
   l              <|> RE (Sel rs) mr = Sel (l :: rs) `RE` \case Here x => x; There y => mr y
   RE (Sel ls) ml <|> Delay r        = Sel (ls ++ [r]) `RE` altWith ls ml theOnly
