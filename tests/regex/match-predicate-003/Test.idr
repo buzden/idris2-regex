@@ -2,7 +2,7 @@ module Test
 
 import Text.Regex
 
-EmailRX = all [ #"[\w\-\.]+@"#.erx, #"(?:[\w-]+\.)+"#.erx, #"[\w-]{2,}"#.erx ]
+EmailRX = #"[\w\-\.]+@(?:[\w-]+\.)+\w[\w-]+"#.erx
 
 record Email where
   constructor MkEmail

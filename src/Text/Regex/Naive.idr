@@ -184,7 +184,8 @@ namespace Regex
     wordBoundary = (`RE` id) .: WordB
     withMatch    = (`RE` mapFst pack) . WithMatch
     all          = (`RE` id) . Seq
-    exists       = (`RE` id) . Sel
+    exists [x]   = map Here x
+    exists xs    = (`RE` id) $ Sel xs
     rep1         = (`RE` id) . Rep1
 
   public export %hint RegexRegExp : Regex RegExp; RegexRegExp = Naive
