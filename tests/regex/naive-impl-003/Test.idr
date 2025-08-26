@@ -60,13 +60,13 @@ matchPerl regex str = do
 
 matchNaive : (regex, str : String) -> Maybe (String, String, String)
 matchNaive regex str = do
-  let Right (Evidence _ r) = parseRegex regex | Left _ => Nothing
+  let Right (Evidence _ r) = parseAnyRegex regex | Left _ => Nothing
   forgetVal <$> matchInside r str
 
 covering
 naiveMatchesPerl : (regex : String) -> (PropertyName, Property)
 naiveMatchesPerl regex = MkPair (fromString "particular expression \{regex}, inside, single-line mode") $ property $ do
-  case parseRegex {rx=RegExpText} regex of
+  case parseAnyRegex {rx=RegExpText} regex of
     Right (Evidence _ p) => annotate "\{p}"
     Left (RegexIsBad pos reason) => annotate "regex is bad at \{show pos}: \{reason}"
   str <- forAll $ string (constant 0 100) (char $ constant ' ' '\x7E')

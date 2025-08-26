@@ -1,9 +1,13 @@
 ||| Parser of extended POSIX regular expressions with (hopefully) unambiguous extensions from PCRE.
 module Text.Regex.Parser.ERE
 
+import Control.Monad.Error.Interface
+
 import Data.Bits
 import public Data.Either
 import public Data.DPair
+
+import Decidable.Equality
 
 import public Language.Reflection
 
@@ -169,16 +173,16 @@ crumple ((n ** r) :: rs) = do
 -- - highest: postfix ops: *, +, ?, {..}
 -- - middle: sequencing
 -- - low: infix op: |
-parseRegex' : Regex rx => List RxLex -> Exists $ \n => rx $ Vect n String
-parseRegex' = alts where
+parseRegex'' : Regex rx => List RxLex -> (n ** rx $ Vect n String)
+parseRegex'' = alts where
   concatAll : List (n ** rx $ Vect n String) -> (n ** rx $ Vect n String)
   concatAll xs = let Evidence _ (rs, MkDPair _ (conv, _)) = crumple xs in (_ ** conv <$> all rs)
-  alts : List RxLex -> Exists $ \n => rx $ Vect n String
+  alts : List RxLex -> (n ** rx $ Vect n String)
   conseq : List RxLex -> List (n ** rx $ Vect n String)
   alts lxs = do
     let alts = forget $ concatAll . assert_total conseq <$> List.split (\case Alt => True; _ => False) lxs
     let Evidence _ (alts, (n ** (_, conv))) = crumple alts
-    Evidence _ $ conv <$> exists alts
+    MkDPair _ $ conv <$> exists alts
   conseq [] = pure (_ ** pure [])
   conseq $ C [<c]         :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ char c
   conseq $ C cs           :: xs = (:: conseq xs) $ MkDPair _ $ [] <$ string (pack $ cast cs)
@@ -195,11 +199,23 @@ parseRegex' = alts where
   conseq $ Alt            :: xs = (:: conseq xs) $ MkDPair _ $ pure [] -- should never happen, actually
 
 export %inline
-parseRegex : Regex rx => String -> Either BadRegex $ Exists rx
-parseRegex str = (\(Evidence _ r) => Evidence _ r) . parseRegex' . cast <$> lexERE (unpack str)
+parseRegex : Regex rx => String -> Either BadRegex (n ** rx $ Vect n String)
+parseRegex str = parseRegex'' . cast <$> lexERE (unpack str)
+
+export %inline
+parseRegexN : Regex rx => (matchingGroupsCnt : Nat) -> String -> Either BadRegex $ rx $ Vect matchingGroupsCnt String
+parseRegexN n str = do
+  (n' ** r) <- parseRegex str
+  let Yes Refl = decEq n n' | No _ => throwError $ RegexIsBad 0 "Regex is expected to contain \{show n} matching groups, but contains \{show n'}"
+  pure r
+
+||| Parses regex with any returning type and retuns both the type and parsed regex
+export %inline
+parseAnyRegex : Regex rx => String -> Either BadRegex $ Exists rx
+parseAnyRegex = map (\(_ ** r) => Evidence _ r) . parseRegex
 
 public export %inline
-toRegex : Regex rx => (s : String) -> (0 _ : IsRight $ parseRegex {rx} s) => rx $ fst $ fromRight $ parseRegex {rx} s
+toRegex : Regex rx => (s : String) -> (0 _ : IsRight $ parseRegex {rx} s) => rx $ Vect (fst $ fromRight $ parseRegex {rx} s) String
 toRegex s = snd $ fromRight $ parseRegex {rx} s
 
 export %macro
@@ -209,7 +225,7 @@ export %macro
       patchFC ofs fc@(MkFC origin (l, c) (l', _))        = if l /= l' then fc else let p = (l, c + cast ofs) in MkFC origin p p
       patchFC ofs fc@(MkVirtualFC origin (l, c) (l', _)) = if l /= l' then fc else let p = (l, c + cast ofs) in MkVirtualFC origin p p
       patchFC ofs EmptyFC                                = EmptyFC
-  let Right $ Evidence ty r = parseRegex {rx} str
+  let Right $ Evidence ty r = parseAnyRegex {rx} str
     | Left (RegexIsBad idx reason) => do failAt (patchFC idx $ getFC !(quote str)) "Bad regular expression at position \{show idx}: \{reason}"
   Just Refl <- catch $ check {expected = a = ty} `(Refl)
     | Nothing => do fail "Unable to match expected type \{show !(quote a)} with the regex type \{show !(quote ty)}"
