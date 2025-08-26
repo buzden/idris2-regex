@@ -110,6 +110,10 @@ parameters {default False multiline : Bool}
     rep acc $ Stop post                  = acc :< post
     rep acc $ Match pre matched val cont = rep .| acc :< pre :< replacement matched val .| cont
 
+  ---------------------------------------------------
+  --- Type-level predicate and functions using it ---
+  ---------------------------------------------------
+
   public export %inline
   MatchesWhole : TextMatcher tm => tm a -> String -> Type
   MatchesWhole = IsJust .: matchWhole
@@ -125,6 +129,14 @@ parameters {default False multiline : Bool}
   public export %inline
   doesMatchInside : TextMatcher tm => (matcher : tm a) -> (input : String) -> Dec $ MatchesInside matcher input
   doesMatchInside _ _ = isItJust _
+
+  public export %inline
+  matchWholeResult : TextMatcher tm => (matcher : tm a) -> (input : String) -> (0 _ : MatchesWhole matcher input) => a
+  matchWholeResult matcher input = fromJust $ matchWhole matcher input
+
+  public export %inline
+  matchInsideResult : TextMatcher tm => (matcher : tm a) -> (input : String) -> (0 _ : MatchesInside matcher input) => OneMatchInside a
+  matchInsideResult matcher input = fromJust $ matchInside matcher input
 
 --- Modifiers for replacement functions ---
 
