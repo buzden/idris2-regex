@@ -80,32 +80,28 @@ interface TextMatcher tm where
                Stop post' => Match pre match val $ Stop $ strCons k post'
                Match pre' match' val' cont' => Match pre match val $ Match (strCons k pre') match' val' cont'
 
-parameters {default False multiline : Bool}
+parameters {default False multiline : Bool} {auto _ : TextMatcher tm} (matcher : tm a)
 
   -- The following functions are a workaround of current inability of interfaces to hold functions with `default` arguments.
-  public export %inline matchWhole  : TextMatcher tm => tm a -> String -> Maybe a                  ; matchWhole  = matchWhole' multiline
-  public export %inline matchInside : TextMatcher tm => tm a -> String -> Maybe $ OneMatchInside a ; matchInside = matchInside' multiline
-  public export %inline matchAll    : TextMatcher tm => tm a -> String -> AllMatchedInside a       ; matchAll    = matchAll' multiline
+  public export %inline matchWhole  : String -> Maybe a                  ; matchWhole  = matchWhole'  multiline matcher
+  public export %inline matchInside : String -> Maybe $ OneMatchInside a ; matchInside = matchInside' multiline matcher
+  public export %inline matchAll    : String -> AllMatchedInside a       ; matchAll    = matchAll'    multiline matcher
 
   -----------------------------
   --- Replacement functions ---
   -----------------------------
 
   export
-  replaceOne : TextMatcher tm =>
-               (pattern : tm a) ->
-               (replacement : (match : String) -> (val : a) -> String) ->
+  replaceOne : (replacement : (match : String) -> (val : a) -> String) ->
                String -> String
-  replaceOne pattern replacement str = maybe str rep $ matchInside pattern str where
+  replaceOne replacement str = maybe str rep $ matchInside str where
     %inline rep : OneMatchInside a -> String
     rep $ MkOneMatchInside pre match val post = pre ++ replacement match val ++ post
 
   export
-  replaceAll : TextMatcher tm =>
-               (pattern : tm a) ->
-               (replacement : (orig : String) -> (val : a) -> String) ->
+  replaceAll : (replacement : (orig : String) -> (val : a) -> String) ->
                String -> String
-  replaceAll pattern replacement = concat . rep [<] . matchAll pattern where
+  replaceAll replacement = concat . rep [<] . matchAll where
     rep : SnocList String -> AllMatchedInside a -> SnocList String
     rep acc $ Stop post                  = acc :< post
     rep acc $ Match pre matched val cont = rep .| acc :< pre :< replacement matched val .| cont
@@ -115,28 +111,28 @@ parameters {default False multiline : Bool}
   ---------------------------------------------------
 
   public export %inline
-  MatchesWhole : TextMatcher tm => tm a -> String -> Type
-  MatchesWhole = IsJust .: matchWhole
+  MatchesWhole : String -> Type
+  MatchesWhole = IsJust . matchWhole
 
   public export %inline
-  MatchesInside : TextMatcher tm => tm a -> String -> Type
-  MatchesInside = IsJust .: matchInside
+  MatchesInside : String -> Type
+  MatchesInside = IsJust . matchInside
 
   public export %inline
-  doesMatchWhole : TextMatcher tm => (matcher : tm a) -> (input : String) -> Dec $ MatchesWhole matcher input
-  doesMatchWhole _ _ = isItJust _
+  doesMatchWhole : (input : String) -> Dec $ MatchesWhole input
+  doesMatchWhole _ = isItJust _
 
   public export %inline
-  doesMatchInside : TextMatcher tm => (matcher : tm a) -> (input : String) -> Dec $ MatchesInside matcher input
-  doesMatchInside _ _ = isItJust _
+  doesMatchInside : (input : String) -> Dec $ MatchesInside input
+  doesMatchInside _ = isItJust _
 
   public export %inline
-  matchWholeResult : TextMatcher tm => (matcher : tm a) -> (input : String) -> (0 _ : MatchesWhole matcher input) => a
-  matchWholeResult matcher input = fromJust $ matchWhole matcher input
+  matchWholeResult : (input : String) -> (0 _ : MatchesWhole input) => a
+  matchWholeResult input = fromJust $ matchWhole input
 
   public export %inline
-  matchInsideResult : TextMatcher tm => (matcher : tm a) -> (input : String) -> (0 _ : MatchesInside matcher input) => OneMatchInside a
-  matchInsideResult matcher input = fromJust $ matchInside matcher input
+  matchInsideResult : (input : String) -> (0 _ : MatchesInside input) => OneMatchInside a
+  matchInsideResult input = fromJust $ matchInside input
 
 --- Modifiers for replacement functions ---
 
