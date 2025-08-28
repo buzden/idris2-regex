@@ -82,10 +82,37 @@ interface TextMatcher tm where
 
 parameters {default False multiline : Bool} {auto _ : TextMatcher tm} (matcher : tm a)
 
-  -- The following functions are a workaround of current inability of interfaces to hold functions with `default` arguments.
-  public export %inline matchWhole  : String -> Maybe a                  ; matchWhole  = matchWhole'  multiline matcher
-  public export %inline matchInside : String -> Maybe $ OneMatchInside a ; matchInside = matchInside' multiline matcher
-  public export %inline matchAll    : String -> AllMatchedInside a       ; matchAll    = matchAll'    multiline matcher
+  parameters (input : String)
+
+    -- The following functions are a workaround of current inability of interfaces to hold functions with `default` arguments.
+    public export %inline matchWhole  : Maybe a                  ; matchWhole  = matchWhole'  multiline matcher input
+    public export %inline matchInside : Maybe $ OneMatchInside a ; matchInside = matchInside' multiline matcher input
+    public export %inline matchAll    : AllMatchedInside a       ; matchAll    = matchAll'    multiline matcher input
+
+    ---------------------------------------------------
+    --- Type-level predicate and functions using it ---
+    ---------------------------------------------------
+
+    public export %inline
+    MatchesWhole, MatchesInside : Type
+    MatchesWhole = IsJust matchWhole
+    MatchesInside = IsJust matchInside
+
+    public export %inline
+    doesMatchWhole : Dec MatchesWhole
+    doesMatchWhole = isItJust _
+
+    public export %inline
+    doesMatchInside : Dec MatchesInside
+    doesMatchInside = isItJust _
+
+    public export %inline
+    matchWholeResult : (0 _ : MatchesWhole) => a
+    matchWholeResult = fromJust matchWhole
+
+    public export %inline
+    matchInsideResult : (0 _ : MatchesInside) => OneMatchInside a
+    matchInsideResult = fromJust matchInside
 
   -----------------------------
   --- Replacement functions ---
@@ -105,34 +132,6 @@ parameters {default False multiline : Bool} {auto _ : TextMatcher tm} (matcher :
     rep : SnocList String -> AllMatchedInside a -> SnocList String
     rep acc $ Stop post                  = acc :< post
     rep acc $ Match pre matched val cont = rep .| acc :< pre :< replacement matched val .| cont
-
-  ---------------------------------------------------
-  --- Type-level predicate and functions using it ---
-  ---------------------------------------------------
-
-  public export %inline
-  MatchesWhole : String -> Type
-  MatchesWhole = IsJust . matchWhole
-
-  public export %inline
-  MatchesInside : String -> Type
-  MatchesInside = IsJust . matchInside
-
-  public export %inline
-  doesMatchWhole : (input : String) -> Dec $ MatchesWhole input
-  doesMatchWhole _ = isItJust _
-
-  public export %inline
-  doesMatchInside : (input : String) -> Dec $ MatchesInside input
-  doesMatchInside _ = isItJust _
-
-  public export %inline
-  matchWholeResult : (input : String) -> (0 _ : MatchesWhole input) => a
-  matchWholeResult input = fromJust $ matchWhole input
-
-  public export %inline
-  matchInsideResult : (input : String) -> (0 _ : MatchesInside input) => OneMatchInside a
-  matchInsideResult input = fromJust $ matchInside input
 
 --- Modifiers for replacement functions ---
 
