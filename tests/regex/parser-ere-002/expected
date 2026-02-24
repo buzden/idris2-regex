@@ -4,9 +4,9 @@ Possible error:
     Error during reflection: Bad regular expression at position 2: illegal or unsupported double postfix operator
 
     Test:8:26--8:26
-     4 | 
+     4 |
      5 | %default total
-     6 | 
+     6 |
      7 | bad_nested_postfix : Regex rx => rx ?
      8 | bad_nested_postfix = #"a*?"#.erx
                                   
@@ -19,9 +19,9 @@ Possible error:
     Mismatch between: String -> Elab (?rx ?a) and Elab ?scriptTy.
 
     Test:8:29--8:33
-     4 | 
+     4 |
      5 | %default total
-     6 | 
+     6 |
      7 | bad_nested_postfix : Regex rx => rx ?
      8 | bad_nested_postfix = #"a*?"#.erx
                                      ^^^^
